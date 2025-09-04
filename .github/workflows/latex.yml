@@ -6,7 +6,7 @@ on:
     branches: [ main, master ]
 
 env:
-  MAIN_TEX: main.tex  # si tu archivo principal cambia, ajústalo aquí
+  MAIN_TEX: main.tex  # cambia si tu archivo principal tiene otro nombre
 
 jobs:
   build:
@@ -22,10 +22,11 @@ jobs:
             texlive-latex-extra \
             texlive-fonts-recommended \
             texlive-lang-spanish \
+            texlive-science \
             latexmk
 
-      # BibTeX clásico (sin -use-biber y sin -shell-escape)
-      - name: Compile PDF (latexmk + BibTeX)
+      # Compila con pdfLaTeX + BibTeX (sin -use-biber y sin -shell-escape)
+      - name: Compile PDF (latexmk)
         run: |
           latexmk -pdf -interaction=nonstopmode -file-line-error "$MAIN_TEX"
 
@@ -35,3 +36,18 @@ jobs:
         with:
           name: memoria-pdf
           path: ${MAIN_TEX%.tex}.pdf
+
+      # Subir logs siempre para depurar si falla
+      - name: Upload LaTeX logs (always)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: latex-logs
+          path: |
+            ${MAIN_TEX%.tex}.log
+            ${MAIN_TEX%.tex}.aux
+            **/*.log
+            **/*.blg
+            **/*.aux
+            **/*.fls
+            **/*.fdb_latexmk
