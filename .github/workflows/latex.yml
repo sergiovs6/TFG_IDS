@@ -6,7 +6,7 @@ on:
     branches: [ main, master ]
 
 env:
-  MAIN_TEX: main.tex  # cámbialo a tu archivo principal (p. ej., memoria.tex)
+  MAIN_TEX: main.tex  # si tu archivo principal cambia, ajústalo aquí
 
 jobs:
   build:
@@ -22,17 +22,16 @@ jobs:
             texlive-latex-extra \
             texlive-fonts-recommended \
             texlive-lang-spanish \
-            biber \
             latexmk
 
-      - name: Compile PDF (latexmk + biber)
+      # BibTeX clásico (sin -use-biber y sin -shell-escape)
+      - name: Compile PDF (latexmk + BibTeX)
         run: |
-          latexmk -pdf -interaction=nonstopmode -file-line-error -use-biber "$MAIN_TEX"
+          latexmk -pdf -interaction=nonstopmode -file-line-error "$MAIN_TEX"
 
       - name: Upload PDF
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: memoria-pdf
-          path: |
-            ${MAIN_TEX%.tex}.pdf
-
+          path: ${MAIN_TEX%.tex}.pdf
