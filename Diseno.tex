@@ -1,0 +1,119 @@
+\chapter{DISEÑO}
+\section{Arquitectura del sistema}
+
+En esta sección se describe la arquitectura~\cite{iso42010} global del sistema de detección de intrusiones (IDS) mostrada en la Figura~\ref{fig:Arquitectura2}. El diagrama presenta las entradas, salidas y los módulos responsables del procesamiento~\cite{bass2021sap,kruchten1995} desde la captura del tráfico hasta la clasificación, visualización y exportación de datos. La organización en bloques facilita distinguir el \textbf{módulo de Captura}, el \textbf{\textit{Backend}} (orquestación, clasificación y estado) y el \textbf{\textit{Frontend}} (panel de control), así como los canales de interacción del \textbf{Administrador} y los artefactos de salida (\emph{CSV/TXT}).
+
+\begin{landscape} \begin{figure}[p] \centering \includegraphics[height=1\textheight, trim = 0mm 11mm 0mm 11mm ,clip]{imagenes/diagramas/arquitectura/arquitectura.pdf} \caption{Diagrama de arquitectura del sistema.} \label{fig:Arquitectura2} \end{figure} 
+\end{landscape}
+
+\subsection*{Descripción de componentes}
+
+\noindent\textbf{Atacante / Red.} Fuente de tráfico de red (paquetes) sobre la que opera el IDS. Puede representar tanto actividad legítima como potencialmente maliciosa.
+
+\noindent\textbf{Captura.} Bloque encargado de transformar paquetes en \emph{flows} enriquecidos con características:
+\begin{itemize}
+  \item \textbf{\textit{Sniffer} Scapy.} Proceso/hilo de captura basado en Scapy; aplica filtros BPF y entrega paquetes al agregador de sesiones.
+  \item \textbf{\textit{FlowSession}.} Mantenimiento de la tabla de sesiones/\textit{flows} (p.\,ej., por 5--tupla), con contadores, marcas temporales y estado del flujo.
+  \item \textbf{\textit{Flow} + \textit{Features}.} Cálculo de \emph{features} a nivel de flujo (duración, tasas, \textit{flags}, estadísticos temporales) alineados con el \emph{feature map} del modelo.
+  \item \textbf{\textit{ConsoleWriter}.} Serialización del flujo cerrado a un registro estructurado (para depuración/observabilidad) y envío al siguiente estadio.
+\end{itemize}
+
+\noindent\textbf{Cola de flujos.} \emph{Buffer} productor–consumidor que desacopla la captura/transformación de la clasificación. Amortigua picos y protege la latencia de captura, permitiendo políticas de \emph{backpressure}.
+
+\noindent\textbf{\textit{Backend}.} Núcleo de procesado y orquestación:
+\begin{itemize}
+  \item \textbf{\textit{Worker} de clasificación.} Consumidor de la cola que aplica el mapeo/escala de \emph{features} y solicita predicciones al modelo.
+  \item \textbf{CICIDSPredictor.} Servicio/modelo de inferencia (p.\,ej., \textit{Random Forest}) entrenado sobre \emph{features} compatibles con CICFlowMeter/CICIDS.
+  \item \textbf{\textit{State}.} Gestor de estado y telemetría: controla ciclo de vida (iniciar/parar), expone métricas al \textit{Frontend} y coordina exportaciones.
+\end{itemize}
+
+\noindent\textbf{\textit{Frontend}.} \textbf{\textit{Dashboard} Reflex} que presenta KPIs, flujo de eventos y alertas, y permite la interacción del \textbf{Administrador} (iniciar/parar, filtros de captura, exportación).
+
+\noindent\textbf{CSV/TXT (\textit{Export}).} Artefacto de salida para generación de \textit{datasets} (análisis/entrenamiento \textit{offline}), con esquema y metadatos versionados.
+
+\subsection*{Flujo de datos extremo a extremo}
+
+\begin{enumerate}
+  \item El \emph{Sniffer Scapy} ingiere paquetes desde la interfaz de red y los entrega a \emph{FlowSession}.
+  \item \emph{FlowSession} agrega paquetes en \emph{flows}; al expirar o cerrarse (FIN/RST/límites), el \emph{Flow} calcula \emph{features}.
+  \item \emph{ConsoleWriter} serializa el \emph{flow} y lo publica en la \textbf{cola de flujos}.
+  \item El \textbf{\textit{Worker}} consume cada \emph{flow}, aplica mapeo/escala y consulta a \textbf{CICIDSPredictor} para obtener \emph{label} y probabilidad.
+  \item \textbf{\textit{State}} registra métricas, decide acciones (alerta, persistencia) y expone el estado al \textbf{\textit{Dashboard} Reflex}.
+  \item El \textbf{Administrador} opera el sistema desde el \emph{dashboard} (iniciar/parar, filtros). Cuando se requiere, se dispara la ruta de \textbf{\textit{Export}} para generar \emph{CSV/TXT}.
+\end{enumerate}
+
+\subsection*{Aspectos transversales de diseño}
+
+\begin{itemize}
+  \item \textbf{Concurrencia y resiliencia.} Desacoplo productor–consumidor mediante la cola; reintentos y \emph{rate limiting} en rutas de alerta/exportación.
+  \item \textbf{Reproducibilidad.} Versionado del modelo, \emph{scaler} y \emph{feature map} embebidos en cada predicción/exportación.
+  \item \textbf{Observabilidad.} Métricas de captura (pps, \% \textit{drops}), tamaño/latencia de cola, \textit{throughput} de inferencia, ratio de alertas y estado del modelo.
+  \item \textbf{Seguridad.} Control de acceso al panel; sanitización de datos en \textit{logs}/\textit{alertas}; protección de claves/artefactos de modelo.
+  \item \textbf{Escalabilidad.} Posibilidad de múltiples \emph{workers} y balanceo de la cola; captura distribuida si la tasa lo requiere.
+\end{itemize}
+
+\subsection*{Trazabilidad con requisitos y casos de uso}
+\begin{itemize}
+  \item Captura y agregación: CU\_Capturar (RF2), CU\_Filtro (RF5).
+  \item Clasificación y alertado: CU\_Clasificar (RF1), CU\_Alerta (RF4).
+  \item Exportación: CU\_GenerarDataset (RF13).
+  \item Orquestación y panel: CU\_Iniciar/CU\_Parar (RF10/RF11), CU\_Dashboard (RF8).
+\end{itemize}
+
+\section{Wireframe}
+
+Los \emph{wireframes} representan la estructura y jerarquía visual sin detalle gráfico final. Se emplean como artefactos de \emph{diseño centrado en el usuario} de baja fidelidad para explorar la organización de la interfaz antes del diseño visual~\cite{iso9241-210}. A partir del \emph{mockup} existente del \emph{Dashboard} (Sección~\ref{sec:mockups}), se propone el siguiente \textbf{\textit{wireframe} de la vista principal} mostrado en la Figura~\ref{fig:wireframe-dashboard}, con una distribución en rejilla de 12 columnas~\cite{tidwell2019designing,cooper2014aboutface}: cabecera, banda de KPIs, panel de tráfico (izquierda) y columna derecha con alertas y configuración.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\linewidth, trim = 0mm 100mm 0mm 0mm, clip]{imagenes/diagramas/wireframe/wireframe.drawio.pdf}
+    \caption{Wireframe de la vista principal del Dashboard.}
+    \label{fig:wireframe-dashboard}
+\end{figure}
+
+\subsection*{Explicación del wireframe}
+\begin{itemize}
+  \item \textbf{Barra superior.} Muestra el título y el estado del sistema, junto con acciones globales (iniciar/parar/limpiar).
+  \item \textbf{KPIs.} Cuatro tarjetas resumen: total de \emph{flows}, alertas, normales y ataques.
+  \item \textbf{Tráfico de Red (izquierda).} Lista principal con los \emph{flows} recientes; cada ítem ofrece acceso a ``Detalles''.
+  \item \textbf{Alertas (derecha).} Tarjetas con severidad, \textit{score} y contexto; acciones de gestión.
+  \item \textbf{Configuración (derecha).} Selector de interfaz, filtro BPF y acción de exportación de \textit{dataset} (CSV).
+\end{itemize}
+
+\section{Vistas necesarias}
+Además del \textbf{\textit{Dashboard} principal}, se consideran las siguientes vistas:
+\begin{itemize}
+  \item \textbf{Detalle de flujo.} Objetivo: inspección de atributos y \emph{features} de un \emph{flow}. Elementos: 4--tupla, tiempos, bytes/paquetes, \textit{flags}, decisión del modelo y \emph{score}.
+  \item \textbf{Detalle de alerta.} Objetivo: análisis de una detección. Elementos: severidad, regla/modelo, evidencia (\textit{flow(s)} implicados), acciones (\textit{ack}, exportación).
+  \item \textbf{Configuración de captura.} Objetivo: elegir interfaz y filtro BPF; previsualizar estado de captura. Elementos: selectores y validación.
+  \item \textbf{Exportación de \textit{dataset}.} Objetivo: seleccionar rango y esquema; lanzar exportación CSV/TXT; ver progreso y resultado.
+  \item \textbf{Estado del sistema.} Objetivo: telemetría (tasa de captura, tamaño de cola, latencias de inferencia, ratio de alertas).
+  \item \textbf{Gestión de modelo (opcional).} Objetivo: ver versión activa, métricas y posibilidad de recarga/\textit{rollback} controlado.
+\end{itemize}
+
+La definición de vistas responde a una separación de preocupaciones orientada a tareas del usuario y a niveles de información, alineada con buenas prácticas de arquitectura de la información e interacción~\cite{garrett2010elements,tidwell2019designing}.
+
+\section{Mockups}
+\label{sec:mockups}
+
+Como \emph{mockup}~\cite{cooper2014aboutface,tidwell2019designing} se emplea la implementación visual existente del \textbf{\textit{Dashboard}} (Figura~\ref{fig:mockup-dashboard}). Este \textit{mockup} ilustra el estilo final (tema oscuro, iconografía, colores por severidad)~\cite{iso9241-210} y sirve de referencia para el \emph{wireframe} de la Figura~\ref{fig:wireframe-dashboard}, del que deriva su estructura. En la siguiente ilustración ~\ref{fig:mockup-dashboard} se puede visualizar el mockup en el estado inicial.
+
+\begin{figure}[H]
+  \centering
+  % Sustituir la ruta por la ubicación real del PNG/JPG del mockup
+  \includegraphics[width=\linewidth]{imagenes/diagramas/mockups/mockupstart.png}
+  \caption{Mockup de la interfaz del Dashboard (implementación actual).}
+  \label{fig:mockup-dashboard}
+\end{figure}
+
+Ahora, también podemos visualizar el \textit{mockup} de la aplicación pero en estado de ejecución donde se podrá apreciar cómo el panel se va autorrellenando cuando se está ejecutando con el botón "Iniciar" en la siguiente Figura ~\ref{fig:mockup-dashboard-run}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{imagenes/diagramas/mockups/mockuprun.png}
+  \caption{Mockup de la interfaz del Dashboard (implementación actual) en estado de ejecución.}
+  \label{fig:mockup-dashboard-run}
+\end{figure}
+
+\subsection*{Relación wireframe–mockup}
+El \emph{wireframe} define la jerarquía y disposición de los elementos (zonas funcionales y navegación), mientras que el \emph{mockup} concreta estilo visual (tipografía, colores, espaciados). Ambos representan la misma vista: el primero como guía estructural temprana; el segundo, como anticipo fiel del resultado final.

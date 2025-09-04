@@ -1,0 +1,602 @@
+% !TeX spellcheck = es_ES
+
+% Cada capítulo de la memoria de TFG comienza con \chapter{TÍTULO DEL CAPÍTULO}, tal y como requiere la normativa de la EPSJ
+\chapter{INTRODUCCIÓN}  
+
+El presente Proyecto de Fin de Grado aborda una de las problemáticas más acuciantes en el ámbito de la ciberseguridad: la detección proactiva de intrusiones en redes informáticas. En un panorama digital en constante evolución, donde las amenazas son cada vez más sofisticadas y persistentes, la capacidad de identificar y neutralizar actividades maliciosas en tiempo real se ha convertido en un pilar fundamental para la protección de la información y la infraestructura crítica. Tradicionalmente, los Sistemas de Detección de Intrusiones (IDS) se basaban en firmas o reglas predefinidas, un enfoque que, si bien eficaz contra amenazas conocidas, presenta limitaciones intrínsecas ante nuevos ataques o variaciones de los existentes.
+
+Este trabajo propone el desarrollo de un Sistema de Detección de Intrusiones (IDS) innovador, que fusiona la captura y el monitoreo de tráfico de red en tiempo real con la potencia de las técnicas de aprendizaje automático (\textit{Machine Learning}). El objetivo principal es la creación de un modelo de clasificación robusto y preciso, capaz de discernir de forma autónoma si un determinado flujo de tráfico de red es benigno (legítimo) o malicioso (indicativo de una intrusión o ataque). Esta aproximación busca superar las deficiencias de los sistemas basados en firmas, ofreciendo una mayor adaptabilidad y capacidad para detectar anomalías y comportamientos nunca antes vistos.
+
+Para lograr este cometido, se hará uso de diversas tecnologías y metodologías de vanguardia. La fase de captura y preprocesamiento de datos de red se implementará mediante una aplicación diseñada específicamente para tal fin, garantizando la obtención de información relevante y en el formato adecuado para su análisis. Posteriormente, esta información será alimentada a un modelo de \textit{Machine Learning}~\cite{bishop2007prml}, concretamente un algoritmo de \textit{Random Forest} (Bosques Aleatorios), seleccionado por su probada eficacia, robustez y capacidad para manejar grandes volúmenes de datos con alta dimensionalidad, características esenciales en el análisis de tráfico de red.
+
+La estructura de este primer capítulo sentará las bases conceptuales y técnicas de todo el proyecto. A través de una descripción detallada de los componentes clave y la visión general del sistema propuesto, se facilitará la comprensión de los antecedentes del trabajo, los cuales serán explorados en profundidad en el segundo capítulo de esta memoria. Este enfoque metodológico permite establecer un marco claro para la posterior justificación, diseño e implementación de la solución planteada, enfatizando la relevancia y el impacto potencial de un IDS basado en aprendizaje automático en el contexto actual de la ciberseguridad.
+
+\section{Fundamentos}
+
+En este capítulo se establecerán las bases teóricas y conceptuales fundamentales que sustentan el análisis, diseño e implementación del sistema de detección de intrusiones propuesto. Se abordará en profundidad el paradigma de los Sistemas de Detección de Intrusiones, las bases del aprendizaje automático como disciplina, y se hará un énfasis particular en la comprensión del algoritmo de \textit{Random Forest}, pieza clave de la solución desarrollada. Finalmente, se detallarán las métricas esenciales para la evaluación rigurosa del rendimiento de modelos de clasificación en el contexto de la ciberseguridad. Se comenzará explicando el concepto de \textbf{ciberseguridad y amenazas en redes}~\cite{iso27000}.
+
+\subsection{Ciberseguridad y amenazas en redes}
+
+La seguridad de la información constituye un pilar fundamental en la sociedad digital contemporánea, donde la interconexión global y la dependencia de los sistemas informáticos son crecientes. La protección de los activos digitales se articula en torno a los principios de confidencialidad, integridad y disponibilidad (CID)~\cite{iso27000,anderson2020security}. La confidencialidad garantiza que la información sea accesible únicamente por entidades autorizadas; la integridad asegura que la información no ha sido alterada de forma no autorizada; y la disponibilidad se refiere a la capacidad de los usuarios autorizados para acceder a la información y los sistemas cuando sea necesario. Cualquier evento que comprometa uno o más de estos principios se clasifica como una amenaza, la cual, al explotar una vulnerabilidad existente, puede materializarse en un riesgo para la organización.
+
+El panorama de amenazas en redes informáticas evoluciona constantemente, presentando un desafío dinámico para la ciberseguridad. Si bien históricamente los ataques se centraban en la explotación de vulnerabilidades conocidas o errores de configuración, la sofisticación actual se manifiesta en técnicas de evasión más complejas y la emergencia de amenazas persistentes avanzadas (APT). Entre los tipos de ataques~\cite{enisaETL2023,anderson2020security} más prevalentes que un sistema de detección de intrusiones debe ser capaz de identificar se encuentran:
+\begin{itemize}
+
+    \item\textbf{Ataques de Denegación de Servicio (DoS/DDoS)}: Dirigidos a agotar los recursos de un sistema o red, impidiendo el acceso a servicios legítimos.
+    
+    \item\textbf{Escaneo de Puertos y Reconocimiento}: Fases preliminares donde un atacante explora una red en busca de puntos débiles o servicios abiertos.
+    
+    \item\textbf{Ataques de Fuerza Bruta}: Intentos sistemáticos y repetitivos para adivinar credenciales de acceso o claves de cifrado.
+    
+    \item\textbf{\textit{Malware} (\textit{Software} Malicioso)}: Incluye virus, troyanos, \textit{ransomware} y \textit{spyware}, diseñados con propósitos destructivos, de espionaje o de control remoto.
+    
+    \item\textbf{Explotación de Vulnerabilidades}: Aprovechamiento de fallos de diseño o implementación en \textit{software} y \textit{hardware} para obtener acceso no autorizado o ejecutar código malicioso.
+
+\end{itemize}
+
+La capacidad de identificar estos y otros comportamientos anómalos es crucial para mantener la postura de seguridad de una infraestructura de red.
+    
+\subsection{Sistema de detección de intrusiones}\label{Sec.Capitulos}
+
+En respuesta a la creciente complejidad del panorama de amenazas, los Sistemas de Detección de Intrusiones (IDS) han emergido como componentes esenciales de una estrategia de defensa en profundidad. Un IDS puede definirse como una aplicación de seguridad que monitoriza el tráfico de red o la actividad de un sistema con el fin de identificar patrones o comportamientos indicativos de una intrusión o una violación de políticas de seguridad. Su función principal no es bloquear el ataque (labor de un IPS o \textit{firewall}), sino generar alertas que permitan a los administradores de seguridad tomar las medidas correctivas oportunas.
+
+La clasificación de los IDS se realiza habitualmente atendiendo a su método de detección y a su ubicación en la infraestructura:
+\begin{itemize}
+    
+    \item\textbf{IDS Basados en Firmas (\textit{Signature-based IDS - SIDS})}: Estos sistemas operan mediante la comparación del tráfico de red o eventos del sistema con una base de datos de firmas predefinidas, las cuales corresponden a patrones conocidos de ataques. Su principal ventaja reside en una alta precisión en la detección de ataques ya identificados y catalogados, con una baja tasa de falsos positivos en esos escenarios. No obstante, su limitación inherente radica en la incapacidad para detectar ataques novedosos o variantes polimórficas para las cuales no existe una firma en su base de datos, lo que exige una constante actualización de las mismas.
+    
+    \item\textbf{IDS Basados en Anomalías (\textit{Anomaly-based IDS - AVIDS})}: A diferencia de los SIDS, los AVIDS no dependen de firmas de ataques conocidos. En su lugar, construyen un perfil de comportamiento "normal" de la red, los usuarios o las aplicaciones. Cualquier desviación significativa de este perfil es considerada una anomalía y, por ende, una posible intrusión. La principal fortaleza de los AVIDS es su capacidad para detectar ataques \textit{"zero-day"}  (desconocidos previamente) y ataques sutiles que no encajan en patrones preestablecidos. Sin embargo, su principal desafío es la mayor propensión a generar falsos positivos, ya que cualquier cambio en el comportamiento normal (como la introducción de un nuevo servicio o una carga de tráfico inusual pero legítima) puede ser erróneamente clasificado como un ataque, requiriendo un ajuste continuo y afinado.
+    
+\end{itemize}
+
+En cuanto a su ubicación, se distinguen los \textit{Network-based IDS} (NIDS), que analizan el tráfico de red en puntos estratégicos de la infraestructura sin depender de los \textit{hosts} individuales, y los \textit{Host-based IDS} (HIDS), que monitorizan la actividad interna de un sistema operativo o aplicación específica. El sistema desarrollado en este proyecto se enmarca dentro de la categoría de NIDS, enfocándose en el análisis del tráfico de red.
+
+\subsection{Clasificación}
+
+La clasificación es una de las principales tareas dentro de la minería de datos.
+Como se expresó previamente, el objetivo de esta tarea es predecir una etiqueta categórica para cada ejemplo de un conjunto de datos a partir de sus atributos conocidos \cite{hastie2009elements}.
+
+Existen diversos tipos de clasificación. Entre los más destacados, podemos encontrar:
+
+\begin{itemize}
+    \item\textbf{Clasificación binaria}: en este problema concreto de clasificación, es necesario determinar a qué clase pertenece cada ejemplo de los datos, pero únicamente hay dos clases a elegir. Se suelen usar para problemas de carácter binario, como si una persona está sana o enferma o, en el contexto de esta memoria, si una conexión determinada es benigna o un ataque.
+    
+    \item\textbf{Clasificación multiclase}: al contrario que en el caso previo, se debe determinar la clase de cada ejemplo de entre un conjunto de clases de tamaño superior a dos. En este TFG, también se hará uso de la clasificación multiclase para tratar de determinar el tipo de ataque de una conexión que se sabe maliciosa.
+    
+    \item\textbf{Clasificación multietiqueta}: un caso particular dentro de la clasificación multiclase es la clasificación multietiqueta, ya que, en lugar de asignar una sola clase a cada ejemplo del conjunto de datos, se le deben asignar un conjunto de clases en función a las características de los datos, a menudo siendo posible que cada elemento tenga un número de clases asociadas distinto.
+
+\end{itemize}
+
+\subsection{Descubrimiento de conocimiento en bases de datos}
+
+El Descubrimiento de Conocimiento en Bases de Datos (KDD) es un proceso sistemático y iterativo, no trivial, diseñado para la extracción de patrones válidos, novedosos, potencialmente útiles y comprensibles a partir de grandes volúmenes de datos. Representa la filosofía subyacente a la transformación de datos crudos en inteligencia accionable, siendo crucial en dominios donde la toma de decisiones basada en evidencia es primordial, como la ciberseguridad. 
+
+Al principio, el mayor problema a la hora de extraer información de los datos era, precisamente, conseguir una cantidad de datos considerable para obtener la información buscada. 
+
+Actualmente, el problema ya no radica en obtener datos de los que extraer información, sino en el conjunto de procesos a los que hay que someter dichos datos para poder lograrlo. Por esto precisamente surge el concepto del descubrimiento de conocimiento en bases de datos, o KDD por sus siglas en inglés, propuesto originalmente por Brachman y Anand~\cite{brachman1994process} y expandido por Fayyad et al. ~\cite{fayyad1996kdd}.
+
+En el contexto de un Sistema de Detección de Intrusiones (IDS) basado en aprendizaje automático, el KDD proporciona el marco metodológico para derivar el ``conocimiento" que permite al sistema identificar comportamientos anómalos o maliciosos en el tráfico de red.
+
+El proceso de KDD se articula a través de una secuencia de etapas interdependientes:
+
+\textbf{Fases del Proceso KDD}
+\begin{enumerate}
+
+    \item\textbf{Selección}: Esta etapa inicial define y adquiere los datos relevantes del dominio de aplicación. Para un IDS, esto implica la selección de \textit{datasets} de tráfico de red, como el CIC-IDS2018, que contengan una representación adecuada de comportamientos tanto benignos como maliciosos. La exhaustividad y representatividad de esta selección son fundamentales para la generalizabilidad del modelo resultante.
+    
+    \item\textbf{Preprocesamiento}: Considerada a menudo la fase más laboriosa y crítica, el preprocesamiento aborda la preparación de los datos brutos. Los datos de red, por su naturaleza, suelen ser ruidosos, incompletos, o inconsistentes. Esta etapa involucra:
+    \begin{itemize}
+
+        \item\textbf{Limpieza de Datos}: Eliminación o corrección de datos erróneos, duplicados, inconsistencias y manejo de valores ausentes.
+        
+        \item\textbf{Normalización/Estandarización}: Ajuste de las escalas de las características numéricas para evitar que aquellas con rangos de valores más amplios dominen en el análisis.
+        
+        \item\textbf{Transformación}: Conversión de datos a formatos adecuados para la minería. En el caso de tráfico de red, esto incluye la agregación de paquetes individuales en flujos de red y la extracción de características de esos flujos (ej., duración, número de paquetes, banderas TCP), elementos esenciales para el aprendizaje automático.
+          
+    \end{itemize}
+    \item\textbf{Transformación}: Aunque intrínsecamente ligada al preprocesamiento, esta fase se centra en refinar la representación de los datos para la minería. La ingeniería de características es su componente clave, donde el conocimiento experto del dominio de red se aplica para derivar atributos más complejos y discriminatorios (ej., ratios de bytes por paquete, entropía de los puertos destino). El objetivo es crear un conjunto de características que optimicen la capacidad del algoritmo de \textit{Machine Learning} para identificar patrones de intrusión.
+    
+    \item\textbf{Minería de Datos (\textit{Data Mining})}: Este es el corazón del proceso KDD, donde se aplican algoritmos computacionales para descubrir patrones ocultos, asociaciones, cambios significativos, desviaciones o estructuras significativas en los datos. No es simplemente una técnica, sino un conjunto de enfoques, tareas y técnicas aplicadas a los datos ya preprocesados:
+    \begin{itemize}
+
+    \item\textbf{Enfoques de Minería de Datos}:
+        \begin{itemize}
+        
+            \item\textbf{Aprendizaje Supervisado}: Como se detalla en el punto de Transformación, implica el uso de datos etiquetados para predecir un resultado. La detección de intrusiones es, en esencia, un problema de clasificación supervisada, donde se predice si un flujo es benigno o malicioso.
+            
+            \item\textbf{Aprendizaje No Supervisado}: Se utiliza para encontrar estructuras o patrones en datos sin etiquetas previas (ej., \textit{clustering} para agrupar tráficos similares, o detección de anomalías para identificar comportamientos que se desvían de lo normal sin una etiqueta de "ataque" explícita). Aunque tu proyecto se centra en lo supervisado, estos enfoques complementarios son relevantes en KDD.
+            
+            \item\textbf{Aprendizaje Semi-supervisado}: Combina datos etiquetados y no etiquetados, útil en escenarios donde el etiquetado es costoso.
+            
+        \end{itemize}
+
+    \item\textbf{Tareas Típicas de Minería de Datos}:
+        \begin{itemize}
+        
+            \item\textbf{Clasificación}: Asignar elementos a categorías predefinidas (ej., "ataque" o "normal"). Esta es la tarea principal de tu IDS.
+            
+            \item\textbf{Regresión}: Predecir un valor numérico continuo.
+            
+            \item\textbf{Agrupación (\textit{Clustering})}: Dividir un conjunto de datos en grupos (\textit{clusters}) de elementos similares.
+            
+            \item\textbf{Asociación}: Descubrir reglas que describen relaciones entre elementos.
+            
+            \item\textbf{Detección de Anomalías/\textit{Outliers}}: Identificar patrones que no se ajustan a un comportamiento esperado.
+              
+        \end{itemize}
+    \item\textbf{Técnicas Aplicadas en este Proyecto}: En este trabajo, la fase de minería de datos se concreta en la aplicación del algoritmo \textit{Random Forest} para la tarea de clasificación. Su capacidad para manejar un gran número de características y su robustez ante el ruido lo hacen idóneo para los complejos \textit{datasets} de tráfico de red.
+    \end{itemize}
+    
+    \item\textbf{Evaluación y Presentación}: La etapa final valida la significancia y utilidad de los patrones descubiertos. Los modelos de clasificación se evalúan utilizando métricas específicas (precisión, sensibilidad, \textit{F1-score}, curva ROC) en un conjunto de datos de prueba independiente, asegurando que el conocimiento extraído sea generalizable y no un artefacto del entrenamiento. La interpretabilidad del modelo, aunque un desafío, es un objetivo deseable que permite a los analistas de seguridad comprender la razón de una detección. Finalmente, la presentación del conocimiento se realiza a través de informes, visualizaciones (como el \textit{dashboard} de tu aplicación), que comunican de manera efectiva los \textit{insights} a los usuarios finales.
+
+\end{enumerate}
+\subsection{Machine Learning}
+
+El aprendizaje automático (\textit{Machine Learning - ML})~\cite{bishop2007prml}, una rama de la inteligencia artificial, ha transformado diversas disciplinas al dotar a los sistemas de la capacidad de aprender de datos y mejorar su rendimiento con la experiencia, sin ser programados explícitamente para cada tarea. En el contexto de la ciberseguridad, y específicamente en la detección de intrusiones, el ML ofrece un enfoque adaptativo que puede identificar patrones complejos en grandes volúmenes de tráfico de red, superando las limitaciones de los métodos tradicionales basados en reglas fijas.
+
+El ciclo de vida de un modelo de \textit{Machine Learning} generalmente comprende las siguientes fases interdependientes:
+
+\begin{itemize}
+    
+    \item\textbf{Recopilación y Preprocesamiento de Datos}: Etapa crucial que implica la obtención, limpieza, transformación y estandarización de los datos. La calidad de los datos de entrada es determinante para el éxito del modelo.
+    
+    \item\textbf{Ingeniería de Características (\textit{Feature Engineering})}: Proceso de seleccionar, crear o transformar variables (\textit{features}) a partir de los datos brutos que mejor representen la información subyacente y sean más relevantes para el problema de predicción.
+    
+    \item\textbf{Selección y Entrenamiento del Modelo}: Consiste en elegir el algoritmo de ML más adecuado y ajustar sus parámetros utilizando un subconjunto de datos (conjunto de entrenamiento) para que aprenda los patrones deseados.
+    
+    \item\textbf{Evaluación y Optimización del Modelo}: Se mide el rendimiento del modelo con un conjunto de datos no visto (conjunto de validación o prueba) y se realizan ajustes de hiperparámetros para mejorar su eficacia.
+    
+    \item\textbf{Despliegue y Monitorización}: Una vez validado, el modelo se integra en un entorno de producción para realizar predicciones en tiempo real, siendo fundamental un monitoreo continuo de su desempeño.
+
+\end{itemize}
+
+Dentro del ML, el aprendizaje supervisado es el paradigma central para la detección de intrusiones basada en clasificación. En este enfoque, el modelo aprende de un conjunto de datos que incluye tanto las características de entrada (ej., métricas del tráfico de red) como sus correspondientes etiquetas de salida (ej., "tráfico normal" o "ataque"). El objetivo es que el modelo infiera una función que mapee las entradas a las salidas, permitiendo clasificar nuevas instancias de datos sin etiquetas. Esta investigación se inscribe en este paradigma, buscando clasificar el tráfico de red como benigno o malicioso.
+
+\subsubsection{Preprocesamiento de datos para modelos de Machine Learning}
+
+La efectividad de cualquier modelo de aprendizaje automático depende críticamente de la calidad y el formato de los datos de entrada. En el contexto de la detección de intrusiones, los datos brutos de tráfico de red, capturados en formato de paquetes, no son directamente utilizables por los algoritmos de \textit{Machine Learning}. El preprocesamiento de datos es, por tanto, una fase indispensable que transforma estos paquetes en un formato estructurado y significativo para el análisis.
+
+Las etapas fundamentales del preprocesamiento en un IDS basado en ML incluyen:
+\begin{itemize}
+   
+    \item\textbf{Extracción y Reconstrucción de Flujos de Red}: Los algoritmos de ML operan sobre ``instancias" o "muestras", que en el contexto de la red, son típicamente flujos. Un flujo se define como una secuencia de paquetes que comparten una tupla común de cinco elementos: dirección IP de origen, puerto de origen, dirección IP de destino, puerto de destino y protocolo de transporte. La reconstrucción de flujos a partir de paquetes individuales permite contextualizar la información y calcular características que abarcan la duración total de la conexión.
+    
+     \item\textbf{Generación de Características (\textit{Feature Engineering})}: Una vez reconstruidos los flujos, se extraen o derivan diversas características numéricas y categóricas que describen el comportamiento del flujo. Estas características deben ser consistentes con las utilizadas durante la fase de entrenamiento del modelo. Ejemplos de características incluyen:
+    \begin{itemize}
+         \item\textbf{Métricas de Volumen}: Número total de paquetes, bytes transmitidos (bidireccional), duración del flujo.
+        
+         \item\textbf{Métricas de Tasa}: Paquetes por segundo, bytes por segundo.
+        
+         \item\textbf{Características del Protocolo}: Banderas TCP (SYN, ACK, FIN, RST, PSH, URG), tipo de protocolo (TCP, UDP, ICMP).
+        
+         \item\textbf{Información de Puertos}: Puertos de origen y destino.
+        
+         \item\textbf{Características Temporales}: Variabilidad en el tiempo entre paquetes (\textit{jitter}).
+        
+         \item\textbf{Entropía de la Carga Útil}: Medida de la aleatoriedad en los datos de la carga útil, que puede indicar cifrado o ciertos tipos de ataques.
+    \end{itemize}
+    
+     \item\textbf{Manejo de Variables Categóricas}: Las características no numéricas, como los nombres de protocolos (TCP, UDP, ICMP), deben transformarse a un formato numérico. La técnica común de \textit{One-Hot Encoding} crea nuevas columnas binarias para cada categoría, donde un '1' indica la presencia de esa categoría y un '0' su ausencia.
+    
+     \item\textbf{Escalado de Características Numéricas}: Las características numéricas a menudo presentan rangos de valores muy diferentes (ej., la duración de un flujo puede ser de milisegundos a horas, mientras que el número de paquetes es un entero pequeño). El escalado (normalización o estandarización) es crucial para evitar que las características con rangos más amplios dominen desproporcionadamente en el proceso de aprendizaje del modelo. Técnicas como \textit{StandardScaler} (resta la media y divide por la desviación estándar) o \textit{MinMaxScaler} (escala los valores a un rango específico, como [0, 1]) son comúnmente empleadas.
+    
+     \item\textbf{Manejo de Valores Ausentes o Ruidosos}: Los datos de red pueden contener valores faltantes o erróneos. Es fundamental aplicar estrategias de imputación (ej., rellenar con la media, mediana o moda) o eliminación de instancias para asegurar la integridad del \textit{dataset}.
+    
+     \item\textbf{Manejo del Desequilibrio de Clases (\textit{Class Imbalance})}: En la detección de intrusiones, el tráfico legítimo es abrumadoramente más frecuente que el tráfico malicioso (clases desequilibradas). Si no se aborda, el modelo puede sesgarse hacia la clase mayoritaria y tener un rendimiento deficiente en la detección de la clase minoritaria (ataques). Técnicas como el \textit{oversampling} (ej., SMOTE para crear instancias sintéticas de la clase minoritaria), \textit{undersampling} (reducir la cantidad de instancias de la clase mayoritaria), o el uso de pesos de clase durante el entrenamiento del modelo, son esenciales para mitigar este problema.
+
+\end{itemize}
+\subsubsection{Evaluación de modelos en Sistemas de Detección de Intrusiones}
+
+La evaluación rigurosa del rendimiento de un modelo de clasificación es un paso crítico en el desarrollo de un IDS basado en aprendizaje automático. Dadas las implicaciones de seguridad, es imperativo no solo medir la precisión global, sino también comprender cómo el modelo maneja los errores, especialmente los falsos negativos, que representan ataques no detectados.
+
+La matriz de confusión es la herramienta fundamental para una evaluación detallada. Esta tabla resume las predicciones del modelo frente a las etiquetas reales del \textit{dataset} y se compone de cuatro cuadrantes clave en el contexto de clasificación binaria (Normal/Ataque):
+
+\begin{itemize}
+
+    \item\textbf{Verdaderos Positivos (TP)}: Instancias de tráfico malicioso correctamente clasificadas como ataques.
+    
+    \item\textbf{Verdaderos Negativos (TN)}: Instancias de tráfico normal correctamente clasificadas como benignas.
+    
+    \item\textbf{Falsos Positivos (FP)}: Instancias de tráfico normal erróneamente clasificadas como ataques (falsa alarma).
+    
+    \item\textbf{Falsos Negativos (FN)}: Instancias de tráfico malicioso erróneamente clasificadas como normales (ataque no detectado).
+
+\end{itemize}
+
+A partir de la matriz de confusión, se derivan métricas esenciales para evaluar el desempeño del IDS:
+
+\begin{itemize}
+
+    \item\textbf{Exactitud (\textit{Accuracy})}: 
+    
+        \begin{equation}
+        \mathrm{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}
+        \label{eq:accuracy}
+        \end{equation}
+    
+     Mide la proporción de predicciones correctas sobre el total de predicciones. Aunque intuitiva, puede ser engañosa en \textit{datasets} desequilibrados, donde una alta precisión podría deberse simplemente a la correcta clasificación de la clase mayoritaria.
+    
+    \item\textbf{Sensibilidad / Exhaustividad (\textit{Recall} / \textit{True Positive Rate - TPR})}: 
+
+          \begin{equation}
+            \mathrm{Recall} = \frac{TP}{TP + FN}
+            \label{eq:recall}
+          \end{equation}
+    
+
+     Cuantifica la capacidad del modelo para identificar correctamente todas las instancias positivas (ataques reales). En un IDS, maximizar el \textit{recall} es a menudo una prioridad, ya que un alto número de falsos negativos implica ataques que pasan desapercibidos.
+    
+    \item\textbf{Especificidad (\textit{True Negative Rate - TNR})}:
+    
+      \begin{equation}
+        \mathrm{TNR} = \frac{TN}{TN + FP}
+        \label{eq:tnr}
+      \end{equation}
+        
+     Indica la proporción de instancias negativas (tráfico normal) que son correctamente identificadas.
+    
+    \item\textbf{Precisión (\textit{Precision} / \textit{Positive Predictive Value - PPV})}: 
+
+      \begin{equation}
+        \mathrm{Precision} = \frac{TP}{TP + FP}
+        \label{eq:precision}
+      \end{equation}
+
+     Responde a la pregunta: de todas las instancias que el modelo clasificó como ataques, ¿cuántas fueron realmente ataques? Una alta precisión minimiza los falsos positivos, lo cual es crucial para evitar la "fatiga de alerta'' en los operadores de seguridad.
+    
+    \item\textbf{\textit{F1-Score}}:
+
+      \begin{equation}
+        F1 = 2 \cdot \frac{\mathrm{Precision} \cdot \mathrm{Recall}}{\mathrm{Precision} + \mathrm{Recall}}
+        \label{eq:f1}
+      \end{equation}
+    
+     Es la media armónica de la precisión y la sensibilidad. Proporciona una métrica equilibrada que es especialmente útil cuando existe un desequilibrio significativo entre las clases, ya que penaliza los modelos con altos falsos positivos y falsos negativos.
+    
+    \item\textbf{Tasa de Falsos Positivos (\textit{False Positive Rate - FPR})}: 
+
+      \begin{equation}
+        \mathrm{FPR} = \frac{FP}{FP + TN}
+        \label{eq:fpr}
+      \end{equation}
+    
+
+     Complementa la especificidad y es una métrica crítica en IDS, ya que una alta tasa de falsas alarmas puede llevar a que los analistas ignoren alertas legítimas.
+
+\end{itemize}
+La Curva ROC (\textit{Receiver Operating Characteristic})~\cite{datacampAUC} y el Área bajo la Curva (AUC) son herramientas gráficas y métricas complementarias. La curva ROC representa la relación entre la Tasa de Verdaderos Positivos (TPR) y la Tasa de Falsos Positivos (FPR) a distintos umbrales de clasificación, permitiendo visualizar el compromiso entre ambas. El AUC cuantifica el rendimiento general del clasificador en todos los umbrales posibles; un valor de AUC cercano a 1.0 indica un excelente poder discriminatorio.
+
+Para garantizar la robustez y generalizabilidad del modelo, se emplean técnicas de validación. La Validación Cruzada \textit{K-Fold} es un método estándar en el que el conjunto de datos se divide en k subconjuntos (\textit{folds}). El modelo se entrena k veces; en cada iteración, se utiliza un \textit{fold} diferente como conjunto de prueba y los k−1 restantes como conjunto de entrenamiento. Los resultados se promedian para obtener una estimación más fiable del rendimiento del modelo, reduciendo el sesgo y la varianza que podrían surgir de una única división aleatoria. Además, es esencial distinguir entre el conjunto de entrenamiento, el conjunto de validación (utilizado para el ajuste de hiperparámetros) y el conjunto de prueba (utilizado únicamente para la evaluación final imparcial del modelo).
+
+\subsection{Ciencia de datos}\label{Sec.Referencias}
+
+La Ciencia de Datos~\cite{iadbCienciaDatos,ibmCienciaDatos} emerge como una disciplina transversal que integra metodologías y principios de campos como la estadística, la informática, las matemáticas, el conocimiento del dominio y la visualización, con el propósito primordial de extraer conocimiento, patrones e \textit{insights} accionables a partir de volúmenes de datos complejos y heterogéneos. Su objetivo no es meramente el procesamiento de información, sino la capacidad de transformar datos brutos en inteligencia estratégica, facilitando la toma de decisiones informadas y la predicción de eventos futuros. En la actualidad, su aplicación es ubicua, abarcando desde la optimización de procesos empresariales hasta la investigación científica y, pertinentemente para este proyecto, la ciberseguridad.
+
+Dentro del vasto espectro de la Ciencia de Datos, el aprendizaje automático (\textit{Machine Learning - ML})~\cite{bishop2007prml} y el aprendizaje profundo (\textit{Deep Learning - DL}) constituyen dos de sus pilares más potentes y de mayor crecimiento. Mientras que el aprendizaje automático engloba un conjunto de algoritmos que permiten a los sistemas aprender de los datos para realizar predicciones o tomar decisiones sin ser programados explícitamente para cada tarea, el aprendizaje profundo representa una subcategoría del ML que se basa en redes neuronales artificiales con múltiples capas, capaces de aprender representaciones de datos jerárquicas y abstractas.
+
+En el marco de este proyecto de fin de grado, la Ciencia de Datos se erige como el eje metodológico para abordar el problema de la detección de intrusiones en redes. La fase inicial implica la adquisición y preprocesamiento de grandes volúmenes de datos de tráfico de red, los cuales se presentan con una multitud de características y métricas de conexión. Este proceso es crucial para transformar el tráfico en bruto en un formato estructurado y apto para el análisis computacional.
+
+Posteriormente, y de manera exclusiva, se recurrirá a las técnicas de \textit{Machine Learning} para desarrollar la capacidad predictiva del sistema. Específicamente, se ha optado por el entrenamiento de un modelo basado en el algoritmo \textit{Random Forest}. Este modelo, conocido por su robustez, eficiencia y capacidad para manejar conjuntos de datos de alta dimensionalidad y características complejas, será el encargado de resolver un problema de clasificación. Su función cardinal será la de discernir, con alta fiabilidad, entre patrones de tráfico de red que corresponden a un comportamiento normal (benigno) y aquellos que denotan una actividad maliciosa o una posible intrusión. La implementación de esta aproximación permitirá que el sistema de detección evolucione y se adapte a nuevas amenazas basándose en el aprendizaje continuo de los patrones inherentes a los datos de la red.
+
+\section{Descripción del proyecto}
+El propósito principal de este proyecto es la implementación de un capturador de paquetes en tiempo real que sea capaz de capturar dichos paquetes y agruparlos en distintos flujos para que posteriormente, se muestren en una aplicación web basada en un sistema de detección de intrusiones aplicándole mecanismos de \textit{machine learning}.
+
+El proceso comienza con la captura del tráfico de red mediante una aplicación que tiene como fin la captura de paquetes en claro y a partir de estos, organiza los paquetes en distintos flujos y extrae las características necesarias para que pasen a un formato parecido al que se rige CICFlowMeter, que es una herramienta de generación y análisis de flujos de tráfico de red que produce flujos bidireccionales a partir de paquetes de red.
+
+Por último, la aplicación mostrará en un \textit{dashboard}, los flujos de paquetes en un panel, y en otro, aparecerán cuáles de estos se consideran una amenaza. La lógica de control para discernir entre un flujo benigno y maligno, se encargará el modelo de IA que hemos elegido, el cual, estará integrado en el \textit{backend} al igual que el propio capturador en tiempo real que hemos implementado.
+
+El presente Proyecto de Fin de Grado aborda el diseño e implementación de un Sistema de Detección de Intrusiones (IDS) innovador y multifuncional que integra la captura de tráfico de red en tiempo real con técnicas avanzadas de aprendizaje automático (\textit{Machine Learning}). El objetivo primordial es desarrollar una solución robusta capaz de discernir, con alta fiabilidad, entre tráfico de red legítimo (benigno) y actividad maliciosa o anómala.
+
+El objetivo principal de este trabajo es la creación de una herramienta especializada para la captura y el procesamiento de paquetes de red. Esta aplicación ha sido diseñada con la capacidad de operar en tiempo real, monitorizando continuamente el flujo de datos a través de la red. Un aspecto distintivo de esta herramienta es su versatilidad para generar y persistir flujos de paquetes, transformando la información de bajo nivel de los paquetes individuales en un formato estructurado y significativo para el análisis posterior. La aplicación permite la conversión de estos flujos en formatos de salida estandarizados como .csv o .txt, lo que facilita la creación de nuevas bases de datos de tráfico de red. Esta funcionalidad es crucial, ya que emula y complementa la metodología empleada en \textit{datasets} de referencia en ciberseguridad, como los de la serie CIC-IDS (ej., CIC-IDS2017, CIC-IDS2018, CIC-IDS2019), proporcionando una base para la investigación y el desarrollo futuros en el campo. Además, la capacidad de invocación por consola dota a la herramienta de flexibilidad para ser integrada en diversos entornos y automatizaciones, permitiendo la generación de datos para el entrenamiento y la evaluación de modelos de \textit{Machine Learning}.
+
+Para validar y demostrar la eficacia del capturador de paquetes y para completar la arquitectura del IDS, se ha implementado un módulo de detección basado en \textit{Machine Learning}. Este módulo utiliza un modelo de clasificación \textit{Random Forest}, seleccionado por su reconocida capacidad para manejar grandes volúmenes de datos con alta dimensionalidad y su robustez ante el ruido. El modelo ha sido entrenado para identificar patrones y características específicas que distinguen el tráfico normal de diversas categorías de ataques, lo que le permite clasificar de forma predictiva cada flujo de red entrante.
+
+Complementando estas funcionalidades, se ha desarrollado una aplicación web, concebida como un \textit{dashboard} intuitivo, que permite visualizar en tiempo real la actividad del capturador de paquetes y el rendimiento del modelo de detección. Esta interfaz gráfica no solo ofrece una representación clara de los eventos de red, sino que también sirve como una herramienta práctica para monitorizar las detecciones de tráfico malicioso, facilitando la interacción del usuario con el IDS.
+
+\section{Objetivos y motivación}\label{sec:objetivos}
+
+La proliferación incesante de las tecnologías digitales y la interdependencia sistémica de las infraestructuras de red han configurado un panorama donde la ciberseguridad ya no es una mera consideración técnica, sino un pilar fundamental para la operatividad y la resiliencia de cualquier entidad, desde organizaciones gubernamentales hasta empresas privadas y usuarios individuales. En este entorno, la capacidad de detectar y responder eficazmente a las intrusiones cibernéticas se ha vuelto crítica. Las amenazas evolucionan con una celeridad asombrosa, adoptando formas cada vez más sofisticadas y evasivas que superan las capacidades de los sistemas de defensa convencionales, como los Sistemas de Detección de Intrusiones (IDS) basados exclusivamente en firmas. Estos últimos, si bien eficientes contra amenazas conocidas y previamente catalogadas, son inherentemente limitados frente a los ataques \textit{zero-day} o las variantes polimórficas que modifican sus patrones para eludir la detección.
+
+Esta brecha en las capacidades de detección tradicional ha impulsado la necesidad de explorar paradigmas más adaptativos y predictivos. El aprendizaje automático (\textit{Machine Learning} — ML) emerge como una solución prometedora, dada su capacidad para identificar patrones complejos, anomalías y comportamientos desviados en grandes volúmenes de datos, sin requerir una programación explícita para cada posible amenaza \cite{Zhang2022AICybersecurity}. La aplicación de ML en la detección de intrusiones no solo promete una mayor tasa de detección de ataques novedosos, sino que también ofrece la posibilidad de reducir la dependencia de actualizaciones manuales de firmas y reglas.
+
+La motivación principal de este Proyecto de Fin de Grado radica precisamente en responder a esta necesidad crítica. Se aspira a contribuir de forma tangible al campo de la ciberseguridad mediante el desarrollo de un IDS que fusione la monitorización en tiempo real del tráfico de red con la inteligencia predictiva del \textit{Machine Learning}. Más allá de la mera detección, se reconoce un desafío recurrente en la investigación de IDS: la escasez de \textit{datasets} de tráfico de red etiquetados que sean representativos y actuales para el entrenamiento y la validación de modelos de ML \cite{PolaniaArias2021EvaluacionMLIDS}. La creación de tales \textit{datasets} es laboriosa y costosa, lo que limita la evaluación comparativa y el desarrollo de nuevas arquitecturas de detección. Esta dificultad intrínseca proporciona una motivación adicional y un objetivo crucial: disponer de una herramienta que no solo detecte intrusiones, sino que también \textbf{genere \textit{datasets} de alta calidad} emulando metodologías de \textit{benchmarks} reconocidos como los de la serie CIC-IDS (p.\,ej., CIC-IDS2017, CIC-IDS2018, CIC-DDoS2019). Esta capacidad es fundamental para impulsar futuras investigaciones y para el entrenamiento continuo de modelos más robustos y adaptativos.
+
+Con base en esta motivación y en las limitaciones identificadas, los objetivos del proyecto se estructuran como sigue.
+
+\subsection*{Objetivo general}
+Este TFG tiene como objetivo principal \textbf{Diseñar, desarrollar e implementar una herramienta de captura en tiempo real} que reconstruya flujos de conexión, extraiga características y permita la \textbf{generación de \textit{datasets} exportables} (\emph{CSV/TXT}) compatibles con esquemas tipo CIC; y, como demostrador, un \textbf{prototipo de IDS} holístico y funcional que consuma dichos datos para clasificar tráfico benigno/malicioso y tipificar ataques mediante un modelo de ML operando en tiempo real.
+
+\subsection*{Objetivos específicos}
+\begin{itemize}
+
+    \item\textbf{Concebir y Construir una Herramienta Avanzada para la Captura y el Preprocesamiento de Tráfico de Red}: El desarrollo de una aplicación personalizada es fundamental. Esta herramienta no solo deberá ser eficiente en la captura de paquetes en tiempo real, sino que también integrará capacidades robustas para la reconstrucción de flujos de conexión y la extracción detallada de un amplio conjunto de características pertinentes para el análisis de seguridad. Un valor añadido de esta herramienta será su funcionalidad para generar salidas estructuradas en formatos estándar (\emph{CSV/TXT}), lo que permitirá la creación sistemática de nuevas bases de datos de tráfico de red. Esta capacidad de generación de \textit{datasets}, invocable desde la consola, es vital para la replicabilidad, la extensibilidad y la contribución a la comunidad de investigación en ciberseguridad.
+    
+    \item\textbf{Investigar, Implementar y Optimizar un Modelo de Clasificación de \textit{Machine Learning} de Alto Rendimiento}: La selección de un algoritmo de aprendizaje automático es crucial. Se ha optado por el algoritmo \textit{Random Forest} debido a su probada eficacia en problemas de clasificación multiclase y binaria, su resistencia al sobreajuste, y su capacidad para gestionar conjuntos de datos con un elevado número de características y una significativa dimensionalidad \cite{Breiman2001RandomForests}. El modelo será sometido a un riguroso proceso de entrenamiento con \textit{datasets} de tráfico etiquetado, con el fin de optimizar su rendimiento para la minimización simultánea de falsos positivos (que generan fatiga en los analistas) y, lo que es más crítico, de falsos negativos (que implican ataques no detectados) \cite{PolaniaArias2021EvaluacionMLIDS}.
+    
+    \item\textbf{Asegurar la Integración Fluida entre la Captura de Datos y el Motor de Detección de \textit{Machine Learning}}: Se establecerá un \textit{pipeline} de procesamiento de datos que permita la alimentación continua y eficiente de los flujos de red preprocesados desde la herramienta de captura hacia el modelo de \textit{Machine Learning}. Esta integración garantizará que el IDS pueda clasificar el tráfico de forma dinámica y emitir alertas inmediatas ante la detección de actividades sospechosas, operando en un modo casi en tiempo real.
+    
+    \item\textbf{Diseñar y Desarrollar una Interfaz Web Intuitiva para la Monitorización y Visualización}: Para facilitar la interacción del usuario y la supervisión del sistema, se implementará un prototipo de aplicación web que actúe como un \textit{dashboard}. Esta interfaz ofrecerá una representación clara y amigable de la actividad de la red, los eventos de detección generados por el modelo de \textit{Machine Learning}, y las métricas operativas del IDS. La visualización en tiempo real es clave para proporcionar a los administradores de seguridad una panorámica inmediata del estado de la red.
+    
+    \item\textbf{Realizar una Evaluación Exhaustiva y Rigurosa del Rendimiento del IDS Propuesto}: La validación empírica del sistema es indispensable. Se llevarán a cabo pruebas exhaustivas utilizando metodologías de evaluación estándar para problemas de clasificación en el ámbito de la ciberseguridad. Esto incluirá el cálculo y análisis de métricas como la precisión (\textit{accuracy}), sensibilidad (\textit{recall}), precisión (\textit{precision}), \textit{F1-score}, la construcción y análisis de la matriz de confusión, y la curva ROC con su respectivo AUC \cite{PolaniaArias2021EvaluacionMLIDS}. El objetivo es demostrar la eficacia del IDS en la identificación de diferentes tipos de ataques y validar su viabilidad como una herramienta de seguridad operativa y de valor añadido. Para más información, consulte este apartado ~\ref{ch:resultados}.
+ 
+\end{itemize}
+
+A través de la consecución de estos objetivos, este proyecto no solo aspira a generar una solución técnica funcional para la detección de intrusiones, sino también a contribuir al cuerpo de conocimiento en la intersección de la ciberseguridad y la inteligencia artificial, ofreciendo herramientas y metodologías que pueden ser de utilidad para la comunidad científica y profesional.
+
+\section{Metodología de desarrollo de software}
+Una metodología de desarrollo de \textit{software} es un conjunto de prácticas,
+técnicas y procedimientos que se utilizan para organizar, planificar y ejecutar proyectos de desarrollo de \textit{software}. Su objetivo principal es mejorar la eficiencia y la calidad del proceso de desarrollo, asegurando que el \textit{software} se entregue a tiempo, dentro del presupuesto y cumpla con los requisitos del cliente. Estas metodologías proporcionan un marco estructurado que guía a los equipos de desarrollo a través de las diferentes fases del ciclo de vida del \textit{software}, desde la concepción y el diseño hasta la implementación, prueba y mantenimiento.
+
+\subsection{SCRUM como modelo de desarrollo}
+Dada la estructura del proyecto y sus dimensiones, se ha optado por utilizar la metodología \textit{Scrum}. \textit{Scrum} es una metodología ágil que se basa en la realización de incrementos pequeños y manejables, permitiendo así una mayor flexibilidad y adaptación a los cambios a lo largo del proceso de desarrollo.
+
+Algunos de los componentes clave de \textit{Scrum} son:
+\begin{itemize}
+
+    \item\textbf{Roles: \textit{Scrum} define tres roles principales}:
+    \begin{itemize}
+ 
+        \item\textbf{\textit{Product Owner}}: Responsable de maximizar el valor del producto y gestionar el \textit{backlog} del producto.
+        \item\textbf{\textit{Scrum Master}}: Facilita el proceso \textit{Scrum}, ayuda al equipo a seguir las prácticas de \textit{Scrum} y elimina impedimentos.
+        \item\textbf{Equipo de Desarrollo}: Grupo multifuncional que trabaja en la entrega de incrementos del producto.
+          
+    \end{itemize}
+    \item\textbf{Eventos}:
+    \begin{itemize}
+
+        \item\textbf{\textit{Sprint}}: Periodo de tiempo fijo (generalmente de 1 a 4 semanas) durante el cual se realiza un incremento del producto.
+        \item\textbf{\textit{Sprint Planning}}: Reunión para planificar el trabajo que se realizará durante el \textit{sprint}.
+        \item\textbf{\textit{Daily Scrum}}: Reunión diaria de 15 minutos para sincronizar el trabajo del equipo.
+        \item\textbf{\textit{Sprint Review}}: Reunión para revisar el incremento y adaptar el \textit{backlog} del producto si es necesario.
+        \item\textbf{\textit{Sprint Retrospective}}: Reunión para reflexionar sobre el \textit{sprint} y buscar mejoras continuas.
+           
+    \end{itemize}
+    \item\textbf{Artefactos}:
+    \begin{itemize}
+
+        \item\textbf{\textit{Product Backlog}}: Lista priorizada de todo el trabajo que se necesita en el producto.
+        \item\textbf{\textit{Sprint Backlog}}: Lista de tareas seleccionadas del \textit{product backlog} para completarse en el \textit{sprint} actual.
+        \item\textbf{\textit{Increment}}: El resultado de un \textit{sprint}, que debe ser un producto utilizable y potencialmente desplegable.
+          
+    \end{itemize}
+   
+\end{itemize}
+
+\textit{Scrum} se caracteriza por su enfoque en la transparencia, inspección y
+adaptación, permitiendo a los equipos responder rápidamente a los cambios y mejorar continuamente.
+
+Véase en la siguiente ilustración ~\ref{Fig.FasesSCRUM} el proceso de las fases de desarrollo de la metodología Scrum.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{imagenes/proceso_scrum.png}
+  \caption{Proceso de las fases de desarrollo Scrum.}
+  \label{Fig.FasesSCRUM}
+\end{figure}
+
+\subsection{Adaptación de Scrum para proyectos individuales}
+Aunque \textit{Scrum} está diseñado originalmente para equipos, sus principios y
+estructura pueden adaptarse para el desarrollo por una sola persona. Basándonos en el artículo “\textit{Scrum for One}” de Lucidchart ~\cite{lucidchartScrumForOne} vamos a desarrollar el proceso de adaptación de esta metodología para una sola persona. 
+
+En un entorno de un solo desarrollador, la misma persona asume los roles de \textit{Product Owner}, \textit{Scrum Master} y Equipo de Desarrollo. Esto requiere una clara organización y autogestión. El desarrollador único debe gestionar el \textit{backlog} del producto, facilitar su propio proceso de desarrollo y eliminar impedimentos de manera autónoma. Este enfoque puede ser beneficioso ya que el desarrollador tiene control total sobre las decisiones y priorizaciones, lo que puede agilizar el proceso. 
+
+Se pueden mantener los eventos clave de \textit{Scrum}, pero de manera simplificada y flexible para una sola persona:
+\begin{itemize}
+    
+    \item\textbf{\textit{Sprint Planning}}: Planificar los \textit{sprints} sigue siendo esencial. El desarrollador único debe dedicar tiempo a establecer objetivos claros para cada \textit{sprint}, definir las tareas necesarias y priorizarlas en el \textit{sprint backlog}.
+    
+    \item\textbf{\textit{Daily Scrum}}: Aunque no hay un equipo con el cual sincronizarse, el desarrollador puede realizar una auto-revisión diaria. Esto ayuda a mantener el enfoque y la disciplina, permitiendo reflexionar sobre el progreso y ajustar el plan si es necesario.
+    
+    \item\textbf{\textit{Sprint Review}}: Al final de cada \textit{sprint}, el desarrollador revisa el trabajo completado. Este evento puede incluir la evaluación de cómo se han alcanzado los objetivos del \textit{sprint} y la identificación de cualquier ajuste necesario en el \textit{backlog} del producto.
+
+    \item\textbf{\textit{Sprint Retrospective}}: Es crucial para la mejora continua. El desarrollador reflexiona sobre lo que funcionó bien y lo que se puede mejorar para los próximos \textit{sprints}.
+  
+\end{itemize}
+
+Los artefactos de \textit{Scrum} también siguen siendo importantes ya que una vez
+vistas las modificaciones en los eventos se puede concluir que los artefactos se usarán de la misma forma que en un equipo con varias personas. 
+
+Además, la naturaleza iterativa de \textit{Scrum} permite una gran flexibilidad y
+capacidad de adaptación. Esto significa que el desarrollador puede responder rápidamente a los cambios y ajustar su enfoque según sea necesario, lo cual es vital en un entorno de desarrollo dinámico. Las retrospectivas regulares fomentan una cultura de mejora continua, permitiendo identificar áreas de mejora y aplicar cambios en ciclos cortos, lo que facilita la evolución y optimización del proceso de desarrollo.
+
+\subsection{Sprints de desarrollo}\label{Sec.Sprints}
+El desarrollo de un sistema tan complejo como un Sistema de Detección de Intrusiones (IDS) que integra captura de tráfico en tiempo real, procesamiento de datos, análisis mediante aprendizaje automático y una interfaz web, exige una metodología ágil que permita gestionar la complejidad, adaptarse a los desafíos emergentes y entregar valor de forma incremental. Para este proyecto, se adoptó un enfoque basado en \textit{Sprints} de Desarrollo, inspirados en la metodología SCRUM. Esta aproximación facilitó la división del proyecto en iteraciones cortas y manejables, cada una enfocada en la consecución de funcionalidades específicas, garantizando así un progreso continuo y la capacidad de integrar retroalimentación a lo largo del ciclo de vida del desarrollo. A continuación, se describen los \textit{sprints} planificados y ejecutados, delineando los objetivos y entregables clave de cada fase.
+
+
+\textbf{\textit{Sprint} 1: Fundamentos Teóricos y Análisis de Requisitos}
+
+Este \textit{sprint} inaugural se centró en la construcción de una base de conocimiento sólida indispensable para abordar un proyecto de la envergadura de un IDS basado en \textit{Machine Learning}. Las primeras semanas se dedicaron a una inmersión profunda en la literatura científica y técnica. Se revisó una colección de \textit{papers} y artículos especializados proporcionados por la dirección del proyecto, enfocados en la intersección de la inteligencia artificial y la ciberseguridad, con especial énfasis en los principios y arquitecturas de los Sistemas de Detección de Intrusiones \cite{Charmet2022XAI}, \cite{Zhang2022AICybersecurity}. Paralelamente, se llevó a cabo una investigación exhaustiva en bases de datos académicas y repositorios en línea para complementar el entendimiento de conceptos fundamentales de IDS y los distintos paradigmas de inteligencia artificial, inicialmente explorando tanto el aprendizaje supervisado como el no supervisado. Una vez afianzado el conocimiento sobre las técnicas de aprendizaje automático, la atención se dirigió hacia la identificación y análisis de conjuntos de datos (\textit{datasets}) adecuados para el entrenamiento y evaluación de modelos de IDS. Se familiarizó con la estructura, características y taxonomía de \textit{datasets} de referencia en la comunidad, tales como CIC-IDS (2017, 2018, 2019), KDD99, NSL-KDD, y UNSW \cite{PolaniaArias2021EvaluacionMLIDS}, comprendiendo sus particularidades y la información que estos proporcionan para la detección de anomalías. Este \textit{sprint} concluyó con una clara comprensión del marco teórico y una dirección definida hacia la aplicación de técnicas de aprendizaje supervisado, sentando las bases conceptuales para las fases de implementación.
+
+\textbf{\textit{Sprint} 2: Diseño del Módulo de Captura y Selección de Tecnologías} 
+
+Con la base teórica establecida, el segundo \textit{sprint} se focalizó en el diseño arquitectónico del módulo de captura de paquetes y la selección de las tecnologías más adecuadas. La fase inicial de diseño incluyó la evaluación de posibles integraciones con herramientas existentes como Wireshark; sin embargo, las complejidades asociadas a su código base y las potenciales dificultades de integración con componentes de IA llevaron a su descarte. Se llevó a cabo una investigación profunda sobre los lenguajes de programación y las librerías disponibles para el desarrollo de capturadores de paquetes eficientes. Esta fase concluyó con la elección de Python, un lenguaje que demostró ser idóneo por su robustez, su amplio ecosistema de librerías para la manipulación de redes \cite{Shrefler2017Networking} y su facilidad de integración con \textit{frameworks} de \textit{Machine Learning} \cite{Pedregosa2011ScikitLearn}. Crucialmente, se identificó una API especializada que proporcionaba un conjunto rico de funcionalidades para la extracción de características detalladas a partir del tráfico de red. Al finalizar este \textit{sprint}, se dispuso de un diseño conceptual claro del capturador y una pila tecnológica definida para su implementación.
+
+\textbf{\textit{Sprint} 3: Implementación Básica del Capturador de Paquetes y CLI}
+
+Este \textit{sprint} se dedicó a la implementación inicial del capturador de paquetes en Python. Se desarrolló la funcionalidad \textit{core} que permite la intercepción y procesamiento de paquetes de red. El foco principal fue la creación de una interfaz de línea de comandos (CLI) que posibilitara la invocación del programa con parámetros específicos, tales como la interfaz de red a monitorear. Se logró que el capturador pudiera iniciar y detener la recolección de flujos de paquetes desde la terminal, sentando las bases operativas de la herramienta. Las pruebas iniciales se centraron en verificar la correcta captura y el \textit{parseo} básico de los datos de los paquetes, asegurando que el flujo de información se manejara de manera estable.
+
+\textbf{\textit{Sprint} 4: Desarrollo de la Funcionalidad de Exportación de Datos}
+
+Continuando con el módulo de captura, el cuarto \textit{sprint} se concentró en una funcionalidad crítica para la utilidad del proyecto: la exportación de los flujos de paquetes procesados a formatos estructurados. Reconociendo la dificultad de obtener \textit{datasets} de IDS actualizados, se implementó la capacidad de generar archivos en formato .csv y .txt a partir de los flujos capturados. Esta funcionalidad es fundamental, ya que permite que el IDS contribuya a la creación de nuevas bases de datos de tráfico de red, emulando la estructura de \textit{datasets} de referencia como los de la serie CIC-IDS. Esta capacidad es clave para la investigación y el desarrollo de modelos de \textit{Machine Learning}, al proporcionar acceso a datos más representativos del tráfico moderno. Se realizaron pruebas exhaustivas para validar la integridad y el formato de los archivos generados, asegurando que pudieran ser utilizados directamente para el preprocesamiento y entrenamiento de modelos de IA.
+
+\textbf{\textit{Sprint} 5: Definición de la Arquitectura Web y Prototipado de la Interfaz}
+
+Con el módulo de captura en progreso, este \textit{sprint} abordó el diseño y la arquitectura de la aplicación web que albergaría el IDS completo. Se llevó a cabo una investigación de \textit{frameworks} de desarrollo web \textit{full-stack}, evaluando opciones como Angular, React (para \textit{frontend}) combinados con \textit{backends} como Laravel (PHP) o Flask/Django (Python). La decisión final se inclinó por Reflex, un \textit{framework} de Python que ofrecía una solución unificada para el desarrollo \textit{full-stack} en un solo lenguaje, lo que simplificaba la integración con los componentes de Python existentes y optimizaba el flujo de trabajo. Una vez seleccionado el \textit{framework}, se procedió al análisis detallado y el diseño de la interfaz de usuario (UI). Esto incluyó la elaboración de diagramas de flujo de usuario, la creación de \textit{mockups} visuales y \textit{wireframes} para definir la estructura y navegación del \textit{dashboard}. El objetivo fue crear un diseño intuitivo que facilitara la visualización del tráfico de red y las futuras detecciones.
+
+\textbf{\textit{Sprint} 6: Implementación del \textit{Frontend} y Conexión al \textit{Backend} del Capturador}
+
+Este \textit{sprint} se centró en la construcción del \textit{frontend} de la aplicación web según los diseños establecidos en el \textit{sprint} anterior. Se implementaron las principales pantallas y componentes de la interfaz de usuario, dando vida al \textit{dashboard}. Simultáneamente, se inició el desarrollo de la capa de \textit{backend} de la aplicación web, preparada para recibir y procesar los datos del capturador. Un hito crítico de este \textit{sprint} fue la integración inicial del módulo de captura de paquetes con el \textit{backend} de la aplicación web. Para lograr una comunicación en tiempo real y asíncrona entre ambos componentes, se implementó un sistema basado en colas síncronas. Las pruebas de este \textit{sprint} se dirigieron a verificar que los datos de tráfico capturados por el módulo de Python se transmitieran correctamente al \textit{backend} y que el panel de visualización del tráfico de red en el \textit{frontend} se actualizara en tiempo real, confirmando la operatividad del flujo de datos de extremo a extremo.
+
+\textbf{\textit{Sprint} 7: Preprocesamiento y Unificación del \textit{Dataset} para ML}
+
+Paralelo al avance de la aplicación web, este \textit{sprint} se dedicó intensivamente a la preparación del conjunto de datos para el entrenamiento del modelo de \textit{Machine Learning}. Se seleccionó el CIC-IDS2018 como \textit{dataset} principal debido a su representatividad y variedad de ataques \cite{PolaniaArias2021EvaluacionMLIDS}. La tarea crucial fue la unificación de los diversos ficheros que componían este \textit{dataset} (correspondientes a diferentes días de captura y tipos de ataque) en una única base de datos cohesiva. Esta consolidación fue fundamental para asegurar que el modelo de aprendizaje tuviera acceso a un volumen variado y robusto de flujos de tráfico, crucial para su capacidad de generalización \cite{PolaniaArias2021EvaluacionMLIDS}. Tras la unificación, se llevó a cabo un exhaustivo proceso de preprocesamiento, análisis y limpieza de los datos. Esto incluyó la gestión de valores ausentes, la corrección de inconsistencias, la normalización/estandarización de características numéricas y la codificación de variables categóricas, preparando el \textit{dataset} para la fase de entrenamiento \cite{James2013ISLR}.
+
+\textbf{\textit{Sprint} 8: Entrenamiento y Evaluación del Modelo de \textit{Machine Learning} (\textit{Random Forest})}
+
+Una vez que el \textit{dataset} estuvo preparado y limpio, este \textit{sprint} se centró por completo en el desarrollo y la evaluación del modelo de \textit{Machine Learning}. Se procedió al entrenamiento del clasificador \textit{Random Forest}, un algoritmo elegido por su eficacia en la detección de intrusiones en entornos de alta dimensionalidad y su robustez ante el sobreajuste \cite{Breiman2001RandomForests}. Durante esta fase, se ajustaron los hiperparámetros del modelo para optimizar su rendimiento. Tras el entrenamiento, se realizó una evaluación rigurosa del modelo utilizando métricas clave de clasificación como la precisión (\textit{accuracy}), la sensibilidad (\textit{recall}), la precisión (\textit{precision}), el \textit{F1-score}, y el análisis detallado de la matriz de confusión y la curva ROC con su Área bajo la Curva (AUC) \cite{PolaniaArias2021EvaluacionMLIDS}. Este análisis permitió determinar la capacidad predictiva del modelo y su fiabilidad para distinguir entre tráfico benigno y malicioso. El entregable de este \textit{sprint} fue un modelo de \textit{Machine Learning} entrenado y validado, listo para ser integrado en el sistema en tiempo real.
+
+\textbf{\textit{Sprint} 9: Integración Final del Modelo ML y Detección en Tiempo Real}
+
+Este \textit{sprint} fue el punto culminante de la integración de todos los componentes del IDS. El modelo de \textit{Machine Learning} entrenado fue integrado en el \textit{backend} de la aplicación web. Esto permitió que los flujos de paquetes, capturados por el módulo Python y transmitidos a través de las colas síncronas al \textit{backend}, fueran ahora analizados en tiempo real por el modelo \textit{Random Forest}. La funcionalidad clave de este \textit{sprint} fue la capacidad del sistema para determinar si un flujo de tráfico era benigno o malicioso de forma automática y mostrar esta clasificación instantáneamente en la interfaz web. Se realizaron pruebas de integración de extremo a extremo para asegurar que el ciclo completo, desde la captura hasta la predicción y la visualización, operara sin fallos y con la menor latencia posible.
+
+\textbf{\textit{Sprint} 10: Pruebas Exhaustivas, Optimización y Validación Final}
+
+El \textit{sprint} final se dedicó a la consolidación y refinamiento de todo el sistema. Se ejecutaron multitud de pruebas exhaustivas y multifacéticas para garantizar la robustez, la estabilidad y el rendimiento óptimo de la aplicación en su conjunto. Esto incluyó pruebas de estrés para verificar la capacidad del capturador y del modelo bajo cargas de tráfico elevadas, pruebas de usabilidad de la interfaz web, y pruebas de regresión para asegurar que las nuevas funcionalidades no introdujeran fallos en componentes existentes. Asimismo, se llevó a cabo una fase de optimización general del rendimiento de la aplicación, buscando mejorar los tiempos de respuesta del capturador, la latencia en la predicción del modelo y la fluidez de la interfaz de usuario. Finalmente, se realizó una validación completa del sistema \cite{NIST2020SP800-115} para confirmar que todos los objetivos del proyecto habían sido alcanzados, que el IDS operaba de manera confiable y que estaba listo para su defensa.
+
+\section{Presupuesto del proyecto}
+
+La planificación y ejecución de cualquier proyecto, incluyendo un Trabajo Fin de Grado, conlleva una serie de costes asociados que deben ser estimados y desglosados para comprender la inversión económica necesaria. Este apartado detalla el presupuesto aproximado del desarrollo del Sistema de Detección de Intrusiones (IDS) y la herramienta de generación de \textit{datasets} a lo largo de los ocho meses de duración estimados para el proyecto. Para la elaboración de este presupuesto, se han considerado los recursos humanos implicados, los recursos materiales utilizados y los costes indirectos asociados.
+
+\textbf{Recursos Humanos}
+
+Aunque este proyecto ha sido realizado por un único estudiante en el marco de su Trabajo Fin de Grado, para fines de presupuesto y para reflejar un escenario de desarrollo profesional, se estimará el coste equivalente a la contratación de un Programador \textit{Junior} / Investigador \textit{Junior} en Ciberseguridad. Este perfil asumiría las responsabilidades de diseño, programación, investigación y gestión del proyecto.
+
+Para la estimación salarial, se puede tomar como referencia el Convenio colectivo estatal de empresas de consultoría y estudios de mercado y de la opinión pública, o bien, promedios de salarios para perfiles \textit{junior} en el sector tecnológico en España. Considerando un salario anual bruto para un programador/investigador \textit{junior} en un rango de 18.000€ a 22.000€ (más realista para el perfil y las habilidades requeridas en \textit{Machine Learning} y ciberseguridad que los 14.800,66€ mencionados en un convenio específico que puede no aplicar directamente al rol técnico avanzado), tomaremos un valor medio de 20.000€ anuales para este cálculo.
+\begin{itemize}
+
+    \item\textbf{Salario base anual estimado}: 20.000,00 \euro{}
+    
+    \item \textbf{Salario mensual:}$\displaystyle \frac{20.000,00}{12} = 1.666,67 $ \euro{}/mes
+   
+    \item\textbf{Coste total de recursos humanos (8 meses)}:$\displaystyle 1.666,67 \text{ \euro{}/mes} \times 8 \text{ meses} = 13.333,36 $ \euro{}
+
+\end{itemize}
+
+A este coste salarial se le deberían añadir los costes sociales (aportaciones a la Seguridad Social por parte de la empresa), que en España suelen rondar el 30-35\% del salario bruto. Para una estimación, consideraremos un 32\%.
+\begin{itemize}
+    
+    \item\textbf{Costes Sociales mensuales}:$\displaystyle 1.666,67 \text{ \euro{}/mes} \times 0.32 = 533,33 $ \euro{}/mes
+    
+    \item\textbf{Costes Sociales totales (8 meses)}:$\displaystyle 533,33 \text{ \euro{}/mes} \times 8 \text{ meses} = 4.266,64 $ \euro{}
+    
+    \item\textbf{Coste total de Recursos Humanos (Salario + Costes Sociales)}:$\displaystyle 13.333,36 \text{ \euro{}} + 4.266,64 \text{ \euro{}} = 17.600,00 $ \euro{}
+    
+\end{itemize}
+
+\textbf{Recursos Materiales}
+ 
+El desarrollo del proyecto ha requerido el uso de equipamiento informático para la programación, la ejecución de modelos de \textit{Machine Learning} y la realización de pruebas de captura de tráfico en tiempo real. Aunque los equipos ya eran propiedad del desarrollador, para el presupuesto se considerará una amortización proporcional al tiempo de uso del proyecto.
+
+Se han utilizado los siguientes equipos principales:
+
+\begin{itemize}
+
+    \item\textbf{Ordenador Portátil (HP Laptop 15s-fq1xxx)}:
+        \begin{itemize}
+
+            \item\textbf{Coste de adquisición}: 800 \euro{} 
+            
+            \item\textbf{Vida útil estimada}: 4 años (48 meses)
+            
+            \item\textbf{Amortización mensual}l:$\displaystyle \frac{800}{48} = 16,66 $ \euro{}/mes
+            
+            \item\textbf{Coste por 8 meses}:$\displaystyle 16,66 \text{ \euro{}/mes} \times 8 \text{ meses} = 133,28 $ \euro{}
+                   
+        \end{itemize}
+    
+    \item\textbf{\textit{Smartphone} (OnePlus 10 pro, para pruebas de red móvil si aplicase, o como dispositivo de \textit{test} para la \textit{app} web)}:
+    
+        \begin{itemize}
+        
+            \item\textbf{Coste de adquisición}: 500,00 \euro{} (basado en la referencia del compañero)
+            
+            \item\textbf{Vida útil estimada}: 3 años (36 meses)
+            
+            \item\textbf{Amortización mensual}:$\displaystyle \frac{500,00}{36} = 13.88 $ \euro{}/mes
+            
+            \item\textbf{Coste por 8 meses}:$\displaystyle 13.88 \text{ \euro{}/mes} \times 8 \text{ meses} = 111,04 $ \euro{}
+                
+        \end{itemize}
+    
+    \item\textbf{\textit{Software} y Herramientas (Licencias/Suscripciones)}:
+    Aunque la mayoría de las herramientas utilizadas (Python, librerías como Scikit-learn, Reflex, Wireshark/Scapy, etc.) son de código abierto o gratuitas, en un entorno profesional se considerarían costes para herramientas de desarrollo (IDEs avanzados), sistemas de control de versiones \textit{premium} (GitHub Enterprise), o servicios de computación en la nube para el entrenamiento de modelos más grandes (ej. Google Colab Pro, AWS, Azure, etc.). Para este TFG, asumiremos costes mínimos o nulos por licencias de \textit{software}, pero se podría estimar un coste simbólico por el acceso a ciertos recursos o licencias de herramientas de diseño/gestión si se hubieran utilizado versiones de pago. Aquí asumiremos 0€ dado el contexto de TFG, pero se podría incluir un pequeño monto (ej. 50-100€) para una licencia de IDE o \textit{software} de diseño.
+    
+    \item\textbf{Conexión a Internet y Electricidad}:
+    Estos costes se suelen incluir en los costes operativos indirectos de un proyecto. Considerando una parte proporcional del coste de una conexión doméstica y el consumo eléctrico del equipo durante las horas de desarrollo.
+    
+        \begin{itemize}
+        
+            \item\textbf{Conexión a Internet}:$\displaystyle \frac{50 \text{ \euro{}/mes}}{2} \text{ (uso profesional)} \times 8 \text{ meses} = 200,00 $ \euro{}
+            
+            \item\textbf{Electricidad}:$\displaystyle \frac{30 \text{ \euro{}/mes}}{2} \text{ (uso profesional)} \times 8 \text{ meses} = 120,00 $ \euro{}
+                    
+        \end{itemize}    
+    
+    \item\textbf{Total de Recursos Materiales}:$\displaystyle 133,28 \text{ \euro{}} + 111,04 \text{ \euro{}} + 0,00 \text{ \euro{}} + 200,00 \text{ \euro{}} + 120,00 \text{ \euro{}} = 564,32 $ \euro{}
+   
+\end{itemize}
+
+\textbf{Costes Indirectos y Contingencias} 
+
+Estos costes cubren gastos generales y posibles imprevistos no directamente asignables a las categorías anteriores. Incluyen, por ejemplo, material de oficina, formación específica no prevista, gastos de comunicación, etc. Se suele estimar un porcentaje sobre el total de los costes directos.
+\begin{itemize}
+    \item\textbf{Costes Directos Totales (Recursos Humanos + Recursos Materiales)}: $\displaystyle 17.600,00 \text{ \euro{}} + 564,32 \text{ \euro{}} = 18.164,32 \text{ \euro{}}$
+    
+    \item\textbf{Contingencias (10\% de los costes directos)}:$\displaystyle 18.164,32 \text{ \euro{}} \times 0.10 = 1.816,43 \text{ \euro{}}$
+\end{itemize}
+
+\textbf{Resumen del presupuesto final del proyecto}
+
+En la siguiente tabla ~\ref{Tabla.Presupuesto} se puede observar el resumen del desglose de los costes estimados para el desarrollo de este Trabajo Fin de Grado durante un periodo de 8 meses:
+
+\input{tablas/tablaPresupuesto}
+
+Este presupuesto final de aproximadamente 19.980,75 euros proporciona una estimación realista del valor de mercado de un proyecto de esta envergadura y complejidad si se llevara a cabo en un entorno profesional, abarcando la investigación, el desarrollo de un módulo de captura especializado, la implementación de un modelo de \textit{Machine Learning} y la creación de una aplicación web interactiva.
+
+\section{Planificación de tiempo y costes}
+La gestión del tiempo es un pilar fundamental en la ejecución exitosa de cualquier proyecto, especialmente en un Trabajo Fin de Grado (TFG) que requiere una secuencia lógica de actividades y una dedicación constante. La planificación temporal de este proyecto se ha basado en la metodología ágil de \textbf{\textit{Sprints} de Desarrollo} citados en el apartado ~\ref{Sec.Sprints}, la cual ha permitido una organización estructurada de las tareas, la adaptación a los desafíos y la entrega incremental de funcionalidades, tal como se detalló en la sección de Metodología.
+
+Para la estimación y seguimiento del tiempo, se ha considerado un período de ocho meses, que abarca desde la fase inicial de los fundamentos teóricos hasta la validación y documentación final. La duración de cada \textit{sprint} fue estimada en dos semanas aproximadamente, permitiendo flexibilidad para la investigación y el desarrollo intensivo de cada módulo. Este enfoque se alinea con prácticas comunes en la planificación de proyectos de ingeniería de \textit{software}, buscando optimizar el esfuerzo y los recursos disponibles \cite{NIST2020SP800-115}.
+
+Para este proyecto, el cronograma se presenta como una secuencia de los \textit{sprints} ya definidos, cada uno con sus objetivos específicos y una duración estimada.
+
+\subsection{Cronograma del Proyecto}
+
+A continuación, se presenta el cronograma detallado del proyecto, desglosado por los \textit{sprints} de desarrollo en la figura ~\ref{Fig.Cronograma}. Este cronograma visualiza la secuencia de las actividades principales y la estimación de su duración en meses.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=1\textwidth]{imagenes/cronograma.png}
+  \caption{Diagrama de Gantt del proyecto. Fuente: Elaboración propia.}
+  \label{Fig.Cronograma}
+\end{figure}
+
+
+Este cronograma proporciona una guía para la ejecución del proyecto, destacando la superposición de algunos \textit{sprints} (como la investigación teórica con el diseño inicial, o el preprocesamiento de datos con el desarrollo web) para optimizar el tiempo. La naturaleza iterativa de la metodología ágil permite ajustes en la duración de los \textit{sprints} según las necesidades emergentes y la complejidad de las tareas. La dedicación principal al proyecto se concentró en la ejecución de estos \textit{sprints}, culminando con una fase intensiva de integración y pruebas antes de la entrega final.
+
+\subsection{Estimación del Esfuerzo}
+
+La estimación del esfuerzo para el presente Trabajo de Fin de Grado se ha realizado en conformidad con la carga académica establecida para un TFG de 12 créditos ECTS, lo que se traduce en un total de 300 horas de trabajo dedicado. Este volumen de esfuerzo se ha distribuido estratégicamente a lo largo de la duración del proyecto, que abarca desde Noviembre de 2024 hasta finales de Julio de 2025, como se detalla en el cronograma.
+
+Para un perfil de Programador/Investigador \textit{Junior}, la dedicación requerida para un proyecto de esta envergadura se traduce en una asignación meticulosa de horas a cada fase, cubriendo desde la investigación y el diseño hasta la implementación, depuración y la elaboración de la documentación. Este enfoque es consistente con las prácticas comunes en la planificación de proyectos de \textit{software}.
+
+El esfuerzo total de 300 horas se ha distribuido entre las distintas fases y actividades del proyecto, alineándose con la metodología de \textit{sprints} empleada. A continuación, se detalla la asignación de estas horas en las principales etapas:
+
+\begin{itemize}
+
+    \item\textbf{Análisis y Diseño}: Incluye la investigación teórica, la definición de requisitos funcionales y no funcionales, y la conceptualización de la arquitectura inicial del sistema.
+    
+    \item\textbf{Desarrollo e Implementación}: Abarca la codificación y construcción de los diversos módulos, como el capturador de tráfico, la herramienta de generación de \textit{datasets}, el componente de \textit{Machine Learning} y la interfaz de usuario web.
+    
+    \item\textbf{Pruebas y Validación}: Comprende la ejecución de baterías de pruebas, la validación del rendimiento del modelo de \textit{Machine Learning} y la verificación integral de la funcionalidad del sistema.
+    
+    \item\textbf{Documentación}: Incluye la redacción exhaustiva de esta memoria final de grado, la cual culminará a finales de julio de 2025, y la preparación de otros materiales de apoyo.
+    
+    Esta distribución del esfuerzo, similar a la aplicada en otros proyectos académicos que buscan cumplir con un número de créditos específicos, asegura una asignación proporcional de recursos al trabajo técnico, la investigación y la formalización documental. La planificación detallada y el progreso de estas actividades se visualizan en el Diagrama de Gantt del proyecto, presentado en la Figura ~\ref{Fig.Cronograma}.
+
+
+\end{itemize}
+\section{Estructura de la memoria}
+La memoria final de este proyecto está organizada en una serie de capítulos que se ajustan a la siguiente estructura:
+
+\begin{itemize}
+    \item{Capítulo 2}: Capítulo en el que se discute el estado del arte de sistemas de ciberseguridad que aplican ML, como diversas líneas de investigación y desarrollo al respecto
+    \item{Capítulo 3}: Capítulo en el que se abordan los materiales y métodos empleados en el desarrollo del proyecto, haciéndose especial énfasis en cada una de las funcionalidades desarrolladas tanto en el capturador de paquetes como en el propio modelo de \textit{machine learning} empleado para la construcción de la aplicación final para usuarios.
+    \item{Capítulo 4}: Capítulo en el que se profundiza en el análisis del sistema propuesto. Se especifican los requisitos funcionales y no funcionales que definen las funcionalidades y limitaciones de la aplicación. Además, se presentan diagramas de casos de uso, de secuencia y de flujo, que ilustran a un alto nivel la arquitectura y el comportamiento del sistema.
+    \item{Capítulo 5}: Este capítulo documenta el proceso de diseño detallado del sistema, traduciendo los requisitos en una arquitectura concreta. Se presentan los modelos de datos, los diagramas de clases y la estructura modular de la aplicación, definiendo cómo interactúan los componentes del capturador, el modelo de \textit{Machine Learning} y la interfaz de usuario para construir una solución robusta y escalable.
+    \item{Capítulo 6}: En este capítulo se describen los resultados obtenidos tras la implementación y las pruebas del sistema. Se detallan las métricas de rendimiento del modelo de \textit{Machine Learning} y los hallazgos más relevantes de la evaluación. Se presentan los resultados de la validación del sistema para verificar que cumple con los requisitos iniciales.
+    \item{Capítulo 7}: Este apartado presenta las conclusiones del proyecto. Se resumen los logros alcanzados, los desafíos superados y las principales lecciones aprendidas durante el desarrollo. También se discuten las limitaciones del sistema y se proponen posibles mejoras, extensiones y futuras líneas de investigación.
+    \item{Capítulo 8}: Este capítulo incluye cualquier material adicional que, aunque no es esencial para la comprensión del texto principal, complementa la información de la memoria. Incluye detalles técnicos adicionales sobre la instalación y configuración del sistema, capturas de pantalla de la interfaz y manual de usuario.
+    \item{Capítulo 9}: Este capítulo contiene un glosario de términos clave, acrónimos y abreviaturas utilizados en la memoria. Su propósito es ayudar al lector a comprender la terminología técnica del proyecto, garantizando la claridad y la consistencia a lo largo del documento.
+    
+\end{itemize}

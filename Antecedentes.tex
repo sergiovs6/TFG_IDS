@@ -1,0 +1,117 @@
+\chapter{Antecedentes}
+\section{Introducción}
+El presente capítulo tiene como objetivo establecer el marco teórico y contextual necesario para comprender el alcance y la relevancia del Trabajo de Fin de Grado. Se abordarán los fundamentos de los modelos de clasificación de \textit{Machine Learning} que sustentan el enfoque propuesto, se realizará un exhaustivo recorrido por el estado del arte en sistemas de detección de intrusiones (IDS) y se presentarán trabajos relacionados clave que han contribuido al desarrollo de esta disciplina. Finalmente, se analizarán las tecnologías existentes que son relevantes para la implementación de un sistema de detección de anomalías en tráfico de red.
+
+\section{Modelos de Clasificación para Machine Learning}
+
+Los modelos de clasificación son un pilar fundamental en el ámbito del \textit{Machine Learning}, especialmente en aplicaciones donde es necesario categorizar datos en clases predefinidas. En el contexto de la ciberseguridad, estos modelos permiten discernir entre tráfico de red legítimo y malicioso, o incluso identificar el tipo específico de un ataque. A continuación, se describen los modelos de clasificación más relevantes y su aplicabilidad en este dominio.
+
+\subsection{Random Forest}
+\textit{Random Forest} ~\cite{breiman2001random} es un algoritmo de \textit{Machine Learning} basado en el concepto de \textit{ensemble learning}, específicamente mediante el método de \textit{bagging} (\textit{Bootstrap Aggregating}). Este modelo construye múltiples árboles de decisión durante la fase de entrenamiento y, para la clasificación, la salida es la clase que más votan los árboles individuales (o el promedio de las predicciones para regresión). Su robustez se debe a la combinación de predicciones de múltiples árboles, lo que reduce la varianza y el sobreajuste, problemas comunes en árboles de decisión únicos.
+
+Lo que diferencia a este modelo de clasificación de otros de \textit{ensemble} es el hecho de que, para cada árbol de forma individual, se eligen una serie de características del conjunto de datos en lugar del conjunto completo de características. A continuación, a partir de los resultados proporcionados por los árboles individuales, se puede determinar qué etiqueta o clase es la más apropiada para cada dato.
+
+En el ámbito de los IDS, \textit{Random Forest} ha demostrado ser particularmente efectivo debido a su capacidad para manejar grandes volúmenes de datos con alta dimensionalidad, su resistencia a características irrelevantes y su habilidad para estimar la importancia de cada característica, lo cual es crucial para la selección de atributos en el tráfico de red. La capacidad de este algoritmo para proporcionar una alta precisión y su relativamente bajo riesgo de sobreajuste lo hacen una opción atractiva para la detección de anomalías y ataques en redes, como se ha evidenciado en la implementación de este proyecto.
+
+Véase en la siguiente ilustración~\ref{Fig.RandomForest} la arquitectura de clasificación del modelo \textit{Random Forest}.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{imagenes/estructura_rf.png}
+  \caption{Esquema del modelo Random Forest. Fuente: Elaboración propia.}
+  \label{Fig.RandomForest}
+\end{figure}
+
+
+\subsection{Support Vector Machine (SVM)}
+Las \textit{Support Vector Machines} (SVM)~\cite{aljamal2019hybridIDS} son modelos de aprendizaje supervisado utilizados tanto para problemas de clasificación como de regresión. El principio fundamental de SVM radica en encontrar el hiperplano óptimo que mejor separe las clases en un espacio de características de alta dimensionalidad. El "óptimo" se refiere al hiperplano que maximiza el margen entre las clases (la distancia entre el hiperplano y los puntos de datos más cercanos de cada clase, conocidos como vectores de soporte).
+
+Las SVM son particularmente potentes en espacios de alta dimensionalidad y son efectivas en casos donde el número de dimensiones es mayor que el número de muestras. Sin embargo, su complejidad computacional puede ser una limitación en \textit{datasets} muy grandes, como los que se encuentran comúnmente en el análisis de tráfico de red en tiempo real.
+
+Véase en la siguiente ilustración~\ref{Fig.SVM} la arquitectura de clasificación del modelo \textit{SVM}.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{imagenes/diagramas/modelos_ml/svm.png}
+  \caption{Esquema del modelo SVM.}
+  \label{Fig.SVM}
+\end{figure}
+
+\subsection{Naive Bayes}
+El clasificador \textit{Naive Bayes}~\cite{ibmNaiveBayes} es una familia de algoritmos de clasificación probabilística simple basada en el Teorema de Bayes con una "ingenua" suposición de independencia fuerte entre las características. A pesar de su simplicidad y de la suposición de independencia (que a menudo no se cumple en la realidad), los clasificadores \textit{Naive Bayes} han demostrado un rendimiento sorprendentemente bueno en muchas aplicaciones prácticas, especialmente en el procesamiento de lenguaje natural y la clasificación de texto.
+
+Para la detección de intrusiones, su simplicidad y velocidad de entrenamiento lo hacen adecuado para conjuntos de datos grandes y para escenarios donde la eficiencia computacional es crítica. No obstante, la suposición de independencia entre las características de red (como puertos, protocolos, tamaños de paquete) puede limitar su precisión en comparación con modelos más complejos que capturan las interacciones entre ellas.
+
+Véase en la siguiente ilustración~\ref{Fig.nb} la arquitectura de clasificación del modelo \textit{Naive Bayes}.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{imagenes/diagramas/modelos_ml/naive bayes.png}
+  \caption{Esquema del modelo Naive Bayes.}
+  \label{Fig.nb}
+\end{figure}
+
+\subsection{K-Nearest Neighbors (KNN)}
+\textit{K-Nearest Neighbors} (KNN)~\cite{ibmKNN} es un algoritmo de clasificación no paramétrico y basado en instancias. Funciona clasificando nuevos puntos de datos basándose en la mayoría de votos de sus "K" vecinos más cercanos en el espacio de características. La distancia entre los puntos de datos (p.\,ej., distancia euclidiana) es crucial para determinar la "cercanía" de los vecinos.
+
+KNN es simple de entender e implementar y no requiere una fase de entrenamiento explícita, ya que memoriza el conjunto de datos de entrenamiento. Sin embargo, su principal desventaja en el contexto de IDS es la alta complejidad computacional durante la fase de predicción, ya que necesita calcular las distancias a todos los puntos de entrenamiento para cada nueva instancia. Esto lo hace menos adecuado para sistemas en tiempo real que manejan un flujo constante y elevado de tráfico de red.
+
+Véase en la siguiente ilustración~\ref{Fig.knn} la arquitectura de clasificación del modelo \textit{KNN}.
+
+\begin{figure}[ht!]
+  \centering
+  \includegraphics[width=0.8\textwidth]{imagenes/diagramas/modelos_ml/knn.png}
+  \caption{Esquema del modelo KNN.}
+  \label{Fig.knn}
+\end{figure}
+
+\section{Estado del Arte en Sistemas de Detección de Intrusiones (IDS)}
+
+La ciberseguridad es un campo en constante evolución, y los Sistemas de Detección de Intrusiones (IDS) son componentes críticos para salvaguardar la integridad, confidencialidad y disponibilidad de los sistemas de información. El estado del arte actual se caracteriza por una convergencia creciente entre las metodologías tradicionales de detección y las capacidades emergentes del \textit{Machine Learning} y la Inteligencia Artificial.
+
+\subsection{Evolución de los IDS: Desde Firmas a Anomalías}
+Tradicionalmente, los IDS se han clasificado en dos categorías principales: basados en firmas (\textit{Signature-based IDS - SIDS}) y basados en anomalías (\textit{Anomaly-based IDS - AIDS}). Los SIDS detectan intrusiones buscando patrones o firmas predefinidos de ataques conocidos en el tráfico de red o en los registros del sistema. Si bien son muy efectivos para identificar ataques ya conocidos, su principal limitación es la incapacidad de detectar nuevas amenazas (ataques de día cero).
+
+En contraste, los AIDS se centran en identificar desviaciones del comportamiento normal o esperado del sistema o la red. Para ello, construyen un perfil de "normalidad" y cualquier actividad que se desvíe significativamente de este perfil se marca como una anomalía, y potencialmente como una intrusión. La emergencia del \textit{Machine Learning} ha potenciado enormemente la capacidad de los AIDS para aprender patrones complejos de tráfico normal y detectar actividades maliciosas novedosas, superando las limitaciones de los SIDS.
+
+\subsection{IDS Basados en Machine Learning: Taxonomía y Enfoques}
+La aplicación de \textit{Machine Learning} en IDS ha revolucionado la forma en que se detectan las amenazas. Los enfoques de IDS basados en ML pueden clasificarse en:
+\begin{itemize}
+\item \textbf{Supervisados:} Utilizan conjuntos de datos etiquetados (tráfico normal y de ataque) para entrenar modelos que aprenden a clasificar nuevas instancias. Modelos como \textit{Random Forest}, SVM o Redes Neuronales son comunes aquí.
+\item \textbf{No Supervisados:} Emplean algoritmos para descubrir patrones y estructuras ocultas en datos no etiquetados, identificando como anomalías aquellas instancias que no se ajustan a estos patrones. La detección de \textit{outliers} es un ejemplo.
+\item \textbf{Semi-supervisados:} Combinan un pequeño conjunto de datos etiquetados con una gran cantidad de datos no etiquetados para el entrenamiento, siendo útil cuando la anotación de datos es costosa.
+\item \textbf{Basados en Redes Profundas (\textit{Deep Learning}):} Representan una evolución de los modelos de ML, utilizando arquitecturas de redes neuronales con múltiples capas. Modelos como las Redes Neuronales Convolucionales (CNN) son eficientes en la extracción de características jerárquicas de datos secuenciales, y las Redes Neuronales Recurrentes (RNN), especialmente las variantes como LSTM o GRU, son idóneas para el análisis de series temporales de tráfico de red. Recientemente, los modelos basados en \textit{Transformers} también han mostrado un gran potencial en el análisis de secuencias de paquetes.
+\end{itemize}
+Los \textit{datasets} utilizados para el entrenamiento y evaluación de estos modelos son cruciales, siendo algunos de los más reconocidos CIC-IDS2017, CIC-CSE-IDS2018 y KDD Cup 1999.
+
+\subsection{Detección de Ataques Específicos Mediante IA}
+La capacidad del \textit{Machine Learning} permite ir más allá de la simple detección de intrusiones, facilitando la identificación de tipos específicos de ataques con un alto grado de precisión. Por ejemplo, los modelos de clasificación pueden ser entrenados para reconocer patrones asociados con:
+\begin{itemize}
+\item \textbf{Ataques de Denegación de Servicio Distribuido (DDoS):} Identificando volúmenes anómalos de tráfico o patrones de conexión coordinados.
+\item \textbf{Escaneos de Puertos (\textit{Port Scan}):} Detectando intentos de sondear puertos abiertos en un sistema.
+\item \textbf{Inyecciones SQL (\textit{SQL Injection}):} Analizando el contenido de las peticiones web en busca de secuencias de comandos maliciosas.
+\end{itemize}
+Estas detecciones específicas, como las que se presentan en interfaces de \textit{dashboard}, son vitales para la respuesta a incidentes y la implementación de contramedidas adecuadas.
+
+\subsection{Desafíos y Futuro en la Detección de Intrusiones con IA}
+A pesar de los avances significativos, la aplicación de IA en IDS enfrenta desafíos importantes. El "desplazamiento de concepto" (\textit{concept drift}), donde los patrones de ataque evolucionan y los modelos previamente entrenados pueden volverse obsoletos, exige la implementación de mecanismos de re-entrenamiento continuo. El desbalance de clases en los \textit{datasets} (donde el tráfico normal es significativamente más abundante que el tráfico malicioso) es otro obstáculo que puede llevar a modelos sesgados y con baja capacidad para detectar las clases minoritarias. Además, la interpretabilidad de los modelos complejos de \textit{Deep Learning} es un área activa de investigación, ya que comprender por qué un modelo clasifica una actividad como maliciosa es crucial para los analistas de seguridad en la toma de decisiones. El futuro de los IDS con IA se dirige hacia el desarrollo de sistemas más adaptativos, proactivos y explicables, capaces de operar eficazmente en entornos de alta velocidad y volumen, integrando aprendizaje continuo y capacidades de respuesta automatizada.
+
+\section{Trabajos Relacionados}
+
+La literatura científica y técnica ofrece un vasto cuerpo de trabajos relacionados que han explorado la aplicación de técnicas de \textit{Machine Learning} para la detección de intrusiones en redes. Muchos estudios se centran en la experimentación con diversos modelos de clasificación sobre \textit{datasets} de referencia como CIC-IDS2017 o KDD Cup 1999, evaluando su rendimiento en términos de precisión, \textit{recall} y \textit{F1-score} para identificar diferentes categorías de ataques.
+
+Algunas investigaciones se han enfocado en la selección de características (\textit{feature selection}) para optimizar el rendimiento de los modelos, buscando los atributos más relevantes del tráfico de red que permiten una detección eficaz y reducen la complejidad computacional. Otros trabajos han abordado la problemática del desbalance de clases en los \textit{datasets} de ciberseguridad, proponiendo técnicas de sobremuestreo o submuestreo para mejorar la capacidad de detección de ataques minoritarios.
+
+La integración de capturadores de tráfico en tiempo real con módulos de \textit{Machine Learning} es también un área de investigación activa, buscando cerrar la brecha entre la detección \textit{offline} y la capacidad de respuesta inmediata. Proyectos similares al presente, que buscan desarrollar sistemas capaces de procesar flujos de paquetes en tiempo real y aplicar algoritmos de clasificación para identificar anomalías, han allanado el camino para soluciones más proactivas en ciberseguridad.
+
+\section{Tecnologías Existentes}
+
+El desarrollo de un sistema de detección de intrusiones basado en \textit{Machine Learning} se apoya en un ecosistema de tecnologías y herramientas existentes que facilitan la captura de datos, su procesamiento, el entrenamiento de modelos y la visualización de resultados.
+
+En el ámbito de la captura y análisis de tráfico de red, herramientas como Wireshark o tcpdump son estándares de la industria que permiten la interceptación y el análisis profundo de paquetes. Wireshark, en particular, ofrece capacidades de descifrado y una interfaz gráfica detallada para la inspección manual del tráfico.
+
+Para el desarrollo de los algoritmos de \textit{Machine Learning}, Python se ha consolidado como el lenguaje de programación por excelencia en ciencia de datos, gracias a su rica colección de librerías. Scikit-learn proporciona una implementación robusta de una amplia gama de algoritmos de clasificación, incluyendo \textit{Random Forest}, SVM, \textit{Naive Bayes} y KNN. Para enfoques de \textit{Deep Learning}, TensorFlow y PyTorch son los \textit{frameworks} dominantes, ofreciendo flexibilidad y eficiencia computacional para la construcción y entrenamiento de redes neuronales complejas.
+
+El procesamiento y manipulación de grandes volúmenes de datos de red se beneficia enormemente de librerías como Pandas para la gestión de \textit{DataFrames} y NumPy para operaciones numéricas. La visualización de los datos y los resultados del sistema, como un \textit{dashboard} de alertas, se puede lograr con \textit{frameworks} de desarrollo web como Flask, Django o reflex en Python, combinados con librerías de visualización \textit{front-end}.
+
+Finalmente, el uso de entornos de desarrollo integrado (IDE) como VS Code o PyCharm, junto con sistemas de control de versiones como Git y plataformas como GitHub, son tecnologías esenciales que aseguran un desarrollo colaborativo, organizado y eficiente del proyecto.

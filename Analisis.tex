@@ -1,0 +1,843 @@
+\chapter{ANÁLISIS DEL SISTEMA}
+El análisis es una etapa crucial en el ciclo de vida del desarrollo de software, ya que establece una base sólida para el diseño y la implementación del sistema. En este apartado, se detallará la fase de análisis del proyecto, que incluye la identificación y especificación de los requisitos funcionales y no funcionales, la creación de los correspondientes diagramas de casos de uso, la especificación gramatical de cada caso de uso, la creación de un diagrama de flujo principal, de actividades y por último, la elaboración de diagramas de secuencia correspondientes.
+\section{Requisitos del sistema}
+Los requisitos del sistema describen las funciones, características y limitaciones del sistema de detección de intrusiones basado en Machine Learning. Estos se han dividido en dos categorías principales: requisitos funcionales y requisitos no funcionales.
+\subsection{Requisitos funcionales}
+Los requisitos funcionales definen las funcionalidades que el sistema debe proporcionar para cumplir con los objetivos del proyecto~\cite{iso29148}. Se presentan en la siguiente tabla ~\ref{Tabla.requisitos_funcionales}.
+
+\input{tablas/tablaRF}
+\subsection{Requisitos no funcionales}
+Los requisitos no funcionales se refieren a las características de calidad del sistema, como la usabilidad, la fiabilidad y el rendimiento~\cite{iso29148}. En este subapartado, se detallan estos requisitos, proporcionando una visión clara de los estándares de calidad que se espera que la aplicación cumpla. A continuación, se detallan en la siguiente tabla ~\ref{Tabla.requisitos_no_funcionales}.
+
+\input{tablas/tablaRNF}
+
+\subsection{Diagrama de requisitos y trazabilidad inicial}
+
+\begin{landscape}
+\begin{figure}[p]
+  \centering
+  % Aire lateral de seguridad (ajústalo)
+  \newlength{\sideair}\setlength{\sideair}{-2.4cm}
+
+  % Ampliar más allá de textwidth pero sin llegar al borde de la página
+  \begin{adjustwidth*}
+    {-\dimexpr(\paperwidth-\textwidth)/2 + \sideair\relax}
+    {-\dimexpr(\paperwidth-\textwidth)/2 + \sideair\relax}
+    \centering
+    \adjustbox{max totalsize={\dimexpr\paperwidth - 2\sideair\relax}{\textheight}}{%
+      \begin{tabular}{@{}c@{}}
+        \includegraphics[width=\linewidth,pagebox=cropbox]{imagenes/diagramas/requirements/requirementsPart1cropped.pdf}\\[-0.35em]
+        \includegraphics[width=\linewidth,pagebox=cropbox]{imagenes/diagramas/requirements/requirementsPart2cropped.pdf}
+      \end{tabular}%
+    }
+  \end{adjustwidth*}
+
+  \caption{Diagrama de requisitos y trazabilidad (Parte 1 y Parte 2).}
+  \label{fig:diagRequisitosSplit}
+\end{figure}
+\end{landscape}
+
+\subsection*{Diagrama de requisitos y trazabilidad (resumen de RF y RNF)}
+La Figura ~\ref{fig:diagRequisitosSplit} integra en una sola vista los requisitos funcionales (RFx) y no funcionales (RNFx) del sistema y su trazabilidad con los elementos de diseño (casos de uso, \texttt{CU\_*}). 
+
+\paragraph{Qué muestra el diagrama}
+\begin{itemize}
+  \item Los nodos con estereotipo \texttt{\guillemotleft requirements\guillemotright} representan requisitos. Cada uno recoge: \textbf{Id}, \textbf{Text} (resumen), \textbf{Risk} (prioridad/impacto) y \textbf{Verification} (método de verificación: \emph{Test}, \emph{Inspection} o \emph{Analysis}).
+  \item Los nodos con estereotipo \texttt{\guillemotleft element\guillemotright} representan elementos de diseño; en este proyecto corresponden a casos de uso (\emph{Type: usecase}).
+\end{itemize}
+
+\paragraph{Convenciones de relaciones}
+\begin{itemize}
+  \item \textbf{contains}: descomposición/agrupación. Un requisito de alto nivel agrupa a otros más concretos.
+  \item \textbf{satisfies}: relación de cobertura. Un caso de uso implementa el comportamiento requerido por un RF.
+  \item \textbf{traces}: relación de trazado. Un RNF condiciona a un caso de uso (p.\,ej., restricciones de seguridad, rendimiento o usabilidad) sin implicar implementación funcional directa.
+\end{itemize}
+
+\paragraph{Estructura de alto nivel}
+\begin{itemize}
+  \item \textbf{ROW1} y \textbf{ROW2} actúan como requisitos de organización, desde los que se descomponen y agrupan RF relacionados mediante \emph{contains}.
+  \item Existen dependencias/refinamientos entre RF (flechas entre requisitos) que documentan precondiciones lógicas del flujo (p.\,ej., para clasificar es necesario antes capturar/filtrar).
+\end{itemize}
+
+\paragraph{Cobertura funcional (ejemplos destacados para entender los enlaces)}
+\begin{itemize}
+  \item \textbf{CU\_Iniciar} \emph{satisfies} \textbf{RF10} (inicio del sistema).
+  \item \textbf{CU\_Parar} \emph{satisfies} \textbf{RF11} (parada controlada).
+  \item \textbf{CU\_Dashboard} \emph{satisfies} \textbf{RF8} (panel/visualización).
+  \item \textbf{CU\_Limpiar} \emph{satisfies} \textbf{RF9} (limpieza de datos/estado).
+  \item \textbf{CU\_GenerarDataset} \emph{satisfies} \textbf{RF13} (generación de dataset).
+  \item En la parte superior, \textbf{CU\_Clasificar}, \textbf{CU\_Capturar}, \textbf{CU\_Alerta} y \textbf{CU\_Filtro} cubren el flujo principal de tratamiento (detección, alertado, filtrado, etc.). En el clúster derecho, \textbf{CU\_Modelo} y \textbf{CU\_GenerarDataset} completan los RF de modelo y preparación de datos.
+  \item Resultado: cada \textbf{RF} queda cubierto al menos por un \textbf{CU}; estos enlaces \emph{satisfies} permiten derivar casos de prueba de aceptación.
+\end{itemize}
+
+\paragraph{Trazabilidad de requisitos no funcionales (RNF)}
+\begin{itemize}
+  \item \textbf{RNF3} (usabilidad) \emph{traces} a \textbf{CU\_Dashboard}, donde se materializan decisiones de interfaz/UX.
+  \item RNF transversales (p.\,ej., \emph{seguridad}, \emph{rendimiento}, \emph{calidad del modelo}) \emph{traces} a \textbf{CU\_Capturar}, \textbf{CU\_Clasificar}, \textbf{CU\_Modelo}, etc., dejando explícito dónde deben comprobarse dichas restricciones.
+  \item La verificación de RNF se documenta en \emph{Verification} (\emph{Analysis}/\emph{Inspection}; \emph{Test} cuando procede, p.\,ej., tiempos de respuesta o controles de acceso).
+\end{itemize}
+
+\paragraph{Riesgo y priorización}
+\begin{itemize}
+  \item El campo \textbf{Risk} clasifica el impacto de no cumplimiento y guía la priorización de implementación y pruebas: los requisitos con riesgo \emph{High} se abordan antes y con mayor cobertura de validación.
+\end{itemize}
+
+\paragraph{Cómo leer el diagrama de requisitos y trazabilidad}
+\begin{enumerate}
+  \item Identificar, de izquierda a derecha, los grupos de RF bajo \textbf{ROW1}/\textbf{ROW2} para obtener el mapa de alcance.
+  \item Para cada \textbf{RF}, seguir las flechas \emph{satisfies} hacia arriba para ver qué \textbf{CU} lo implementa (y dónde se prueba).
+  \item Para cada \textbf{RNF}, seguir las flechas \emph{traces} para localizar los \textbf{CU} que deben cumplir la restricción.
+  \item Consultar \textbf{Risk} y \textbf{Verification} para conocer la prioridad y el tipo de evidencia planificada en validación.
+\end{enumerate}
+
+
+Por lo tanto, el diagrama o figura proporciona \emph{trazabilidad bidireccional}: desde un requisito es posible localizar los elementos que lo implementan y, desde un caso de uso, los requisitos que satisface o que lo condicionan. Los campos \textbf{Risk} y \textbf{Verification} completan la planificación al vincular prioridad y evidencias de prueba.
+
+\section{Diagrama de casos de uso}
+Este apartado describe los casos de uso identificados para el Sistema IDS desarrollado. Cada caso de uso se alinea con uno o varios requisitos funcionales (RF) y no funcionales (RNF). Para la notación se emplea una plantilla homogénea con: Objetivo, Actores, Precondiciones, Postcondiciones, Flujo Principal, Flujos Alternativos / Excepciones, Requisitos Asociados, Datos y Frecuencia.
+
+A continuación, se podrá visualización en la ilustración ~\ref{fig:diagCasosUso} el diagrama de casos de uso empleado.
+\begin{figure}[ht!] \centering \includegraphics[ width=0.95\textwidth, trim=0mm 30mm 0mm 30mm]{
+imagenes/diagramas/casos/casosClaro.pdf} \caption{Diagrama de casos de uso principal.} \label{fig:diagCasosUso} \end{figure}
+
+
+\subsection{Listado de Casos de Uso}
+\begin{itemize}
+  \item CU\_Configurar Captura
+  \item CU\_Iniciar Captura
+  \item CU\_Capturar Tráfico
+  \item CU\_Filtrar Captura
+  \item CU\_Agregar Paquetes a Flujo
+  \item CU\_Clasificar Flujo
+  \item CU\_Generar Alerta
+  \item CU\_Visualizar Dashboard
+  \item CU\_Mostrar Detalles
+  \item CU\_Limpiar Panel
+  \item CU\_Parar Captura
+  \item CU\_Generar Dataset (Exportar CSV/TXT)
+  \item CU\_Gestionar Modelo ML
+\end{itemize}
+
+% =========================================================
+\subsubsection{CU\_Configurar Captura}
+\begin{description}
+  \item[Objetivo:] Permitir al Administrador seleccionar interfaz y filtro inicial antes de iniciar la captura.
+  \item[Actores:] Administrador (primario).
+  \item[Precondiciones:] El sistema está operativo pero la captura no ha comenzado.
+  \item[Postcondiciones:] Queda almacenada la configuración (interfaz, filtro BPF u otro) en el estado global.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item El Administrador accede al panel de configuración.
+      \item Selecciona la interfaz de red disponible.
+      \item (Opcional) Introduce un filtro (por ejemplo ``tcp port 80'').
+      \item El sistema valida sintaxis mínima (formato no vacío).
+      \item Se actualiza el estado interno (State.set\_interface / set\_filter).
+    \end{enumerate}
+  \item[Flujos Alternativos / Excepciones:]
+    \begin{enumerate}
+      \item[A1] Interfaz inválida: se muestra mensaje y no se guarda.
+      \item[A2] Filtro vacío: se acepta como “sin filtro”.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF5, RF12, RF10 (previo al inicio), RNF3.
+  \item[Datos:] Nombre de interfaz, cadena de filtro.
+  \item[Frecuencia:] Cada vez que se quiera cambiar la configuración antes o durante la operación (si se soporta cambio dinámico).
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Iniciar Captura}
+\begin{description}
+  \item[Objetivo:] Comenzar la captura de paquetes en la interfaz configurada.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Configuración válida establecida; capturador detenido.
+  \item[Postcondiciones:] Hilo de captura (sniffer) en ejecución; worker activo.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item El Administrador pulsa ``Iniciar''.
+      \item El sistema crea instancia de FlowSession y reemplaza el writer por ConsoleWriter.
+      \item Se lanza el hilo de sniffing (scapy AsyncSniffer o bucle sniff).
+      \item Se lanza el worker (thread) de procesamiento de flujos.
+      \item Se marca el estado capturing = True.
+      \item La UI pasa a modo Online.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Error al crear FlowSession: se registra log y no se inicia (capturing permanece False).
+      \item[A2] Interfaz sin tráfico: el sistema sigue esperando.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF10, RF1, RNF1, RNF5.
+  \item[Datos:] Parámetros de inicialización (interfaz, filtro).
+  \item[Frecuencia:] Varias veces a lo largo de la vida del sistema (tras paradas).
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Capturar Tráfico}
+\begin{description}
+  \item[Objetivo:] Interceptar paquetes de red y asociarlos a flujos.
+  \item[Actores:] Sniffer (sistema), Red / Atacante (fuentes externas).
+  \item[Precondiciones:] Captura iniciada.
+  \item[Postcondiciones:] Paquetes tratados y entregados a FlowSession.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item El sniffer recibe un paquete.
+      \item Aplica filtro (si existe).
+      \item Invoca on\_packet\_received(packet).
+      \item Determina clave de flujo (5-tuple + dirección).
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Paquete no TCP ni UDP (si restricción activa) se descarta.
+      \item[A2] Error parsing -> se ignora.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF1, RF5, RF12, RNF1.
+  \item[Datos:] Paquetes en bruto (headers, tiempos).
+  \item[Frecuencia:] Continuamente mientras haya tráfico.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Filtrar Captura}
+\begin{description}
+  \item[Objetivo:] Limitar el tráfico procesado según criterios (puerto, protocolo).
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Configuración aceptada; captura activa o próxima a iniciar.
+  \item[Postcondiciones:] Nuevo filtro aplicado (en reinicio o inmediatamente si se soporta).
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Administrador edita campo de filtro.
+      \item Sistema almacena nuevo valor.
+      \item En el siguiente reinicio de la captura, se usa el filtro.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Filtro sintácticamente inválido: se ignora y mantiene anterior.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF5, RNF3.
+  \item[Datos:] Expresión BPF o similar.
+  \item[Frecuencia:] Esporádica según necesidad.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Agregar Paquetes a Flujo}
+\begin{description}
+  \item[Objetivo:] Agregar cada paquete al flujo correspondiente y actualizar métricas.
+  \item[Actores:] FlowSession, Flow.
+  \item[Precondiciones:] Clave de flujo calculada; flujo existente o se creará uno nuevo.
+  \item[Postcondiciones:] Estructura Flow actualizada; listas internas (paquetes, IAT, active/idle, bulk).
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item FlowSession localiza flujo existente o crea uno nuevo.
+      \item Invoca flow.add\_packet(packet, direction).
+      \item Actualiza timestamps, tamaños, flags, contadores.
+      \item Evalúa condiciones de expiración (FIN, duración, inactividad).
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Expiración superada -> se fuerza clean\_write\_flows y se abre un nuevo contador (count++).
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF1, RNF1.
+  \item[Datos:] Listas de paquetes y features incrementales.
+  \item[Frecuencia:] Por cada paquete.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Clasificar Flujo}
+\begin{description}
+  \item[Objetivo:] Etiquetar cada flujo como Normal o Malicioso.
+  \item[Actores:] Worker (primario), Modelo RF (externo lógico), Administrador (interesado).
+  \item[Precondiciones:] Flujo finalizado (expiración, FIN o límite de paquetes); modelo cargado.
+  \item[Postcondiciones:] Flujo con etiqueta y probabilidad en el estado global.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item El writer encola datos del flujo.
+      \item Worker consume de la cola.
+      \item Mapea/ordena características al formato CIC.
+      \item Escala / transforma según scaler guardado.
+      \item Invoca predict().
+      \item Recibe etiqueta y probabilidad y actualiza contadores.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Modelo no cargado: etiqueta \emph{Unknown}.
+      \item[A2] Excepción de predicción: etiqueta \emph{Error}, probabilidad 0.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF1, RF2, RF7, RNF1, RNF5.
+  \item[Datos:] Vector de características estandarizadas.
+  \item[Frecuencia:] Cada flujo finalizado.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Generar Alerta}
+\begin{description}
+  \item[Objetivo:] Registrar una alerta cuando un flujo es malicioso.
+  \item[Actores:] Worker / Estado, Administrador (visualiza).
+  \item[Precondiciones:] Flujo clasificado como Malicious (etiqueta binaria).
+  \item[Postcondiciones:] Alerta añadida a la lista de alertas.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Worker detecta predicción Malicious.
+      \item Crea estructura de alerta (timestamp, IP origen/destino, severidad).
+      \item Inserta en lista de alertas (máx. 50 manteniendo las más recientes).
+      \item UI muestra contador actualizado.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Lista supera capacidad -> se descarta la más antigua.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF4, RF1, RNF3.
+  \item[Datos:] IPs, probabilidad, severidad (actualmente simulada).
+  \item[Frecuencia:] Cada flujo malicioso.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Visualizar Dashboard}
+\begin{description}
+  \item[Objetivo:] Presentar métricas, flujos y alertas en tiempo (casi) real.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Sistema en ejecución (capturando o con datos cargados).
+  \item[Postcondiciones:] Información visual actualizada cada intervalo (2 s).
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item La UI solicita refresco (timer).
+      \item Estado devuelve totales y colecciones.
+      \item Se renderizan tarjetas (flujos, alertas, normales, ataques).
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Sin flujos todavía: se muestra mensaje de espera.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF3, RF8, RNF3.
+  \item[Datos:] Listas en memoria (no persistidas).
+  \item[Frecuencia:] Cada ciclo de refresco.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Mostrar Detalles}
+\begin{description}
+  \item[Objetivo:] Inspeccionar características detalladas de un flujo o alerta.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Existen flujos y/o alertas en la UI.
+  \item[Postcondiciones:] Modal desplegada con datos completos.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Administrador pulsa “Detalles”.
+      \item Sistema localiza el objeto por ID.
+      \item Copia información en selected\_flow / selected\_alert.
+      \item Abre modal con métricas y flags.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] ID no encontrado (eliminado por poda) -> se cancela.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF3, RF8.
+  \item[Datos:] Campos completos del flujo (features) y la predicción.
+  \item[Frecuencia:] A demanda.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Limpiar Panel}
+\begin{description}
+  \item[Objetivo:] Vaciar las listas de flujos y alertas para reinicio visual.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Existen flujos/alertas en memoria.
+  \item[Postcondiciones:] Listas vacías y contadores a cero.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Administrador pulsa “Limpiar”.
+      \item Sistema asigna listas vacías y reinicia contadores.
+      \item UI refleja estado vacío.
+    \end{enumerate}
+  \item[Flujos Alternativos:] No aplica.
+  \item[Requisitos Asociados:] RF9.
+  \item[Datos:] N/A (operación destructiva en memoria).
+  \item[Frecuencia:] Esporádica.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Parar Captura}
+\begin{description}
+  \item[Objetivo:] Finalizar la captura y forzar escritura de flujos pendientes.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Captura activa.
+  \item[Postcondiciones:] Hilos detenidos; flujos procesados; estado Offline.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Administrador pulsa “Parar”.
+      \item Sistema marca capturing = False.
+      \item Lanza limpieza de flujos (clean\_write\_flows).
+      \item Worker vacía cola pendiente.
+      \item UI muestra estado Offline.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Error en limpieza: se registra log, se continúa la parada.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF11, RF1, RNF1.
+  \item[Datos:] Flujos en cola final.
+  \item[Frecuencia:] Cada ciclo de captura.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Generar Dataset}
+\begin{description}
+  \item[Objetivo:] Exportar los flujos capturados a formato CSV o TXT para entrenamiento futuro o análisis.
+  \item[Actores:] Administrador.
+  \item[Precondiciones:] Existen flujos capturados; el writer soporta el formato.
+  \item[Postcondiciones:] Archivo generado en el sistema de ficheros.
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Administrador solicita exportación (o esta ocurre al finalizar un lote).
+      \item Writer serializa las características en filas.
+      \item Se cierra (o sincroniza) el descriptor de archivo.
+      \item Se notifica éxito (log/UI).
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Error de escritura: se avisa, pudiendo reintentar.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF13, RF6 (si se considera histórico), RNF6.
+  \item[Datos:] Todas las features por flujo (ver Anexo de Features).
+  \item[Frecuencia:] Bajo demanda o al parar.
+\end{description}
+
+% =========================================================
+\subsubsection{CU\_Gestionar Modelo ML}
+\begin{description}
+  \item[Objetivo:] Cargar, validar y (potencialmente) actualizar el modelo de Random Forest.
+  \item[Actores:] Administrador (dispara entrenamiento externo), Sistema (carga al arrancar).
+  \item[Precondiciones:] Ficheros del modelo (.pkl) disponibles.
+  \item[Postcondiciones:] Modelo y scaler listos para inferencia (flag is\_loaded).
+  \item[Flujo Principal:]
+    \begin{enumerate}
+      \item Al iniciar la aplicación se intenta load\_model().
+      \item Se cargan modelo, scaler, mapping y lista de features.
+      \item Se valida coherencia (número de features).
+      \item Se expone is\_loaded=True.
+    \end{enumerate}
+  \item[Flujos Alternativos:]
+    \begin{enumerate}
+      \item[A1] Archivos no encontrados: is\_loaded=False, se muestra mensaje.
+      \item[A2] Error de deserialización: se registra log, mantiene estado no cargado.
+    \end{enumerate}
+  \item[Requisitos Asociados:] RF7, RNF5, RNF6.
+  \item[Datos:] Ficheros .pkl (modelo, scaler, mapping, features).
+  \item[Frecuencia:] Al arranque; manual tras reentrenamiento.
+\end{description}
+
+% =========================================================
+\subsection{Mapa Caso de Uso $\leftrightarrow$ Requisitos (Resumen)}
+\begin{center}
+\begin{tabular}{p{3.2cm} p{8.5cm}}
+\textbf{Caso de Uso} & \textbf{Requisitos Principales}\\\hline
+CU\_Configurar & RF5, RF12, RNF3 \\
+CU\_Iniciar & RF10, RF1, RNF1 \\
+CU\_Capturar & RF1, RF5, RF12, RNF1 \\
+CU\_Filtrar & RF5, RNF3 \\
+CU\_Agregar Paquetes & RF1, RNF1 \\
+CU\_Clasificar & RF1, RF2, RF7, RNF1, RNF5 \\
+CU\_Generar Alerta & RF4, RF1 \\
+CU\_Visualizar Dashboard & RF3, RF8, RNF3 \\
+CU\_Mostrar Detalles & RF3, RF8 \\
+CU\_Limpiar Panel & RF9 \\
+CU\_Parar Captura & RF11, RF1 \\
+CU\_Generar Dataset & RF13, RF6 \\
+CU\_Gestionar Modelo ML & RF7, RNF5, RNF6 \\
+\end{tabular}
+\end{center}
+
+\bigskip
+Con esto queda descrita la interacción funcional del sistema.
+El desarrollo de un sistema de detección de intrusiones basado en Machine Learning se apoya en un ecosistema de tecnologías y herramientas existentes que facilitan la captura de datos, su procesamiento, el entrenamiento de modelos y la visualización de resultados.
+
+
+\section{Gramática del caso de uso}
+
+Una gramática de un caso~\cite{cockburn2000writing} de uso pretende dar una descripción de los componentes, acciones y reacciones del caso de uso, recogiendo los posibles escenarios que pueden producirse. Se estructura con: nombre del caso de uso, protagonista (actor primario), sistema, participantes (conjunto de actores o componentes), nivel del caso de uso (objetivo de usuario o subfunción), precondiciones, operaciones básicas del escenario principal y alternativas/excepciones.
+
+A continuación se presentan dos gramáticas representativas: (i) un caso de objetivo de usuario (CU\_Iniciar Captura) en la tabla ~\ref{tab:gramatica_iniciar}, y (ii) un caso de subfunción interna (CU\_Clasificar Flujo) en la tabla ~\ref{tab:gramatica_clasificar}.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{p{4.0cm} p{10.5cm}}
+\hline
+\textbf{Caso de uso} & CU\_Iniciar Captura \\
+\textbf{Protagonista} & Administrador (usuario) \\
+\textbf{Sistema} & IDS (aplicación web + capturador) \\
+\textbf{Participantes} & UI (Reflex), Estado, Sniffer (Scapy), FlowSession, Worker \\
+\textbf{Nivel} & Objetivo de usuario \\
+\textbf{Precondición} & Configuración válida (interfaz y, opcionalmente, filtro BPF) y captura detenida. \\
+\hline
+\multicolumn{2}{l}{\textbf{Operaciones básicas}}\\
+1 & Pulsar el botón «Iniciar» en la UI. \\
+2 & Crear \textit{FlowSession} y preparar el escritor (ConsoleWriter para la UI). \\
+3 & Lanzar el hilo de sniffing (Scapy) con la interfaz y filtro configurados. \\
+4 & Lanzar el \textit{worker} de procesamiento de flujos. \\
+5 & Marcar \texttt{capturing = True} y poner la UI en estado «Online». \\
+6 & Comenzar el refresco periódico de la información (cada 2 s). \\
+\hline
+\multicolumn{2}{l}{\textbf{Operaciones alternativas / Excepciones}}\\
+1.A & ¿Configuración válida? \\
+1.A.1 & Si sí, continuar con el paso 2. \\
+1.A.2 & Si no, mostrar mensaje de error y no iniciar (permanecer detenido). \\
+3.A & ¿Interfaz o permisos de captura incorrectos? \\
+3.A.1 & Si sí, registrar log y abortar el inicio (seguir Offline). \\
+3.A.2 & Si no, continuar. \\
+4.A & ¿Fallo al arrancar el \textit{worker}? \\
+4.A.1 & Si sí, registrar log y abortar (deshacer recursos del sniffer). \\
+4.A.2 & Si no, continuar. \\
+5.A & ¿No llega tráfico? El sistema permanece a la espera (sin errores). \\
+\hline
+\end{tabular}
+\caption{Gramática del caso de uso CU\_Iniciar Captura (objetivo de usuario).}
+\label{tab:gramatica_iniciar}
+\end{table}
+
+\paragraph{Explicación}
+Este caso de uso representa la acción principal del usuario para poner el sistema en marcha. La responsabilidad de crear y coordinar los hilos (sniffer y \textit{worker}) recae en la aplicación, y el éxito se refleja en el cambio de estado a «Online» y el inicio del ciclo de refresco.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{p{4.0cm} p{10.5cm}}
+\hline
+\textbf{Caso de uso} & CU\_Clasificar Flujo \\
+\textbf{Protagonista} & Sistema (Worker) \\
+\textbf{Sistema} & IDS (componente de inferencia) \\
+\textbf{Participantes} & Writer/Cola de flujos, CICIDSPredictor (Scaler + Modelo RF), Estado/UI \\
+\textbf{Nivel} & Subfunción del sistema \\
+\textbf{Precondición} & Existe un flujo finalizado en cola; artefactos cargados (modelo, \textit{scaler}, \textit{mapping}). \\
+\hline
+\multicolumn{2}{l}{\textbf{Operaciones básicas}}\\
+1 & El \textit{writer} entrega (encola) los datos del flujo. \\
+2 & El \textit{worker} consume el flujo desde la cola. \\
+3 & Mapear/renombrar y completar características al formato CIC (duplicados incluidos). \\
+4 & Sustituir NaN/inf por 0 y aplicar \texttt{StandardScaler}. \\
+5 & Invocar \texttt{predict}/\texttt{predict\_proba} (Random Forest). \\
+6 & Registrar en el estado la etiqueta y la probabilidad; actualizar contadores. \\
+7 & Si la etiqueta es «Malicious», solicitar la generación de alerta. \\
+\hline
+\multicolumn{2}{l}{\textbf{Operaciones alternativas / Excepciones}}\\
+1.A & ¿Hay flujo listo en cola? \\
+1.A.1 & Si sí, continuar con el paso 2. \\
+1.A.2 & Si no, esperar (bloqueo con \textit{timeout}) y reintentar. \\
+3.A & ¿Faltan columnas requeridas por CIC? \\
+3.A.1 & Si sí, imputar/corregir (duplicados: \texttt{Fwd Seg Size Avg} $\leftarrow$ \texttt{Fwd Pkt Len Mean}, etc.). \\
+3.A.2 & Si no se puede corregir, descartar el flujo y registrar log. \\
+4.A & ¿Scaler no cargado o inconsistencia de dimensiones? \\
+4.A.1 & Intentar recarga; si falla, etiquetar «Unknown» y probabilidad 0. \\
+5.A & ¿Excepción en predicción? \\
+5.A.1 & Etiquetar «Error», probabilidad 0 y registrar log. \\
+7.A & ¿Etiqueta = «Malicious»? \\
+7.A.1 & Si sí, crear alerta con severidad según probabilidad y notificar a la UI. \\
+7.A.2 & Si no, finalizar sin alerta. \\
+\hline
+\end{tabular}
+\caption{Gramática del caso de uso CU\_Clasificar Flujo (subfunción del sistema).}
+\label{tab:gramatica_clasificar}
+\end{table}
+
+\paragraph{Explicación}
+Este caso de uso detalla el ciclo de inferencia del IDS. La clave es mantener la compatibilidad estricta con el formato CIC (nombres y orden de columnas) y el uso del \texttt{StandardScaler} entrenado. Los fallos se gestionan con etiquetas «Unknown»/«Error» y registro de eventos, y las detecciones maliciosas derivan en la creación de alertas visibles en el \textit{dashboard}.
+
+\section{Diagrama de actividades}\label{Sec.DiagActividades}
+\subsection{Exportación del dataset}
+
+\begin{figure}[H] \centering \includegraphics[ height=0.85\textheight, trim=0mm 0mm 100mm 0mm, clip ]{imagenes/diagramas/actividades/activityexportdataset/aed.pdf} \caption{Diagrama de actividades de exportación del dataset.} \label{fig:diagActED} \end{figure}
+
+\textbf{Propósito.} Este proceso, asociado a \textbf{CU\_GenerarDataset} y \textbf{RF13}, permite extraer un conjunto de datos desde los flujos mantenidos por el IDS para su análisis externo o entrenamiento de modelos. El principal objetivo de este proceso es obtener un conjunto de datos que pueda ser utilizado en un futuro como una fuente de base de datos de recopilación de ataques modernos.
+
+En la ilustración ~\ref{fig:diagActED} se puede visualizar el diagrama de exportación del dataset.
+
+\textbf{Descripción del flujo.}
+\begin{enumerate}
+  \item \textbf{Solicitar exportación.} El operador dispara la acción desde la interfaz, un endpoint de administración o desde la terminal de comandos. Se registran parámetros de exportación (rango temporal, esquema, formato CSV/TXT, destino).
+  \item \textbf{¿Captura activa?} Se comprueba si el proceso de captura está en ejecución.
+  \begin{itemize}
+    \item \emph{Sí:} Se ofrece la \emph{opción de parar temporalmente} la captura o tomar un \emph{snapshot} consistente (congelar la vista de la tabla de flujos) para evitar condiciones de carrera durante la lectura.
+    \item \emph{No:} Se continúa directamente.
+  \end{itemize}
+  \item \textbf{Tomar flujos en memoria.} Se obtiene el conjunto de flujos a exportar a partir de la estructura de agregación (p.\,ej., tabla hash por 5-tuple) o del buffer persistente, aplicando los filtros solicitados.
+  \item \textbf{Recorrer flujos.} Iteración secuencial o en \emph{batches} sobre los flujos. En este paso se completan/derivan campos (duración, bytes/paquetes, timestamps normalizados) y se valida el esquema de salida.
+  \item \textbf{Serializar a CSV/TXT.} Conversión de cada flujo a un registro plano con cabecera y orden de columnas definido (alineado con el \emph{feature map} usado por el modelo). Se recomienda escritura atómica: archivo temporal + renombrado final.
+  \item \textbf{¿Error de escritura?} Se controla E/S (permisos, espacio, locking).
+  \begin{itemize}
+    \item \emph{Sí:} Se registra el error y se aplica política de \emph{reintento} con \emph{backoff}, hasta un máximo de intentos. Si se agota, se marca la exportación como \emph{fallida}.
+    \item \emph{No:} Se confirma la generación (ruta, tamaño, número de registros, checksum).
+  \end{itemize}
+  \item \textbf{Fin de exportación.} Se notifica al usuario y se dejan métricas (tiempo, throughput, errores).
+\end{enumerate}
+
+\textbf{Entradas y salidas.}
+\begin{itemize}
+  \item Entradas: tabla/buffer de flujos, parámetros de exportación, esquema de columnas.
+  \item Salidas: archivo(s) CSV/TXT, registro de auditoría y métricas de proceso.
+\end{itemize}
+
+\textbf{RNF y consideraciones.}
+\begin{itemize}
+  \item \emph{Consistencia}: snapshot o pausa breve si la captura está activa, evitando truncados/inconsistencias.
+  \item \emph{Reproducibilidad}: incluir cabecera, versión de esquema y zona horaria; fijar formato de timestamp.
+  \item \emph{Rendimiento}: escritura en \emph{buffer} y compresión opcional si el volumen es alto.
+\end{itemize}
+
+\textbf{Verificación.} Prueba de conteos (flujos seleccionados $\approx$ filas exportadas), validación de esquema/encabezados, comprobación de integridad (checksum) y prueba de reintento ante disco lleno/permisos.
+
+\textbf{Trazabilidad.} Satisface \textbf{RF13}. Condiciona a \textbf{CU\_Modelo} (entrenamiento) al proporcionar datasets consistentes.
+
+\subsection{Captura y clasificación}
+
+\begin{figure}[H] \centering \includegraphics[ height=0.90\textheight, trim=0mm 0mm 100mm 0mm, clip ]{imagenes/diagramas/actividades/activitycaptureclassify/acc.pdf} \caption{Diagrama de actividades de captura y clasificación.} \label{fig:diagActCyC} \end{figure}
+
+\textbf{Propósito.} Este flujo implementa el \emph{pipeline} en línea de detección, cubriendo \textbf{CU\_Capturar} (\textbf{RF2}), \textbf{CU\_Filtro} (\textbf{RF5}), \textbf{CU\_Clasificar} (\textbf{RF1}) y la generación de alertas \textbf{CU\_Alerta} (\textbf{RF4}), con persistencia \textbf{RF6} y actualización del panel \textbf{RF8}.
+
+En la ilustración ~\ref{fig:diagActCyC} se puede visualizar el diagrama de captura y clasificación.
+\textbf{Descripción del flujo.}
+\begin{enumerate}
+  \item \textbf{Iniciar captura.} El sistema configura el \emph{sniffer} (interfaz, BPF) y pasa a estado operativo.
+  \item \textbf{Recibir paquete.} Cada paquete entrante se procesa en tiempo real.
+  \item \textbf{¿Existe flujo?} Búsqueda en la tabla de flujos por 4-tupla.
+  \begin{itemize}
+    \item \emph{No:} \textbf{Crear flujo}. Se inicializa estructura con contadores, timestamps y contexto.
+    \item \emph{Sí:} \textbf{Actualizar flujo}. Se actualizan métricas (bytes, paquetes, flags, tiempos).
+  \end{itemize}
+  \item \textbf{¿Fin/expira/máx?} Se decide si el flujo puede cerrarse por: (i) FIN/RST observado, (ii) \emph{timeout} de inactividad, (iii) tamaño/duración máximos alcanzados.
+  \begin{itemize}
+    \item \emph{No:} Se vuelve a \textbf{Recibir paquete} (flujo continúa).
+    \item \emph{Sí:} El flujo se \emph{cierra} y pasa a etapa de \emph{feature engineering}.
+  \end{itemize}
+  \item \textbf{Calcular features.} Extracción de características a nivel de flujo (duración, tasas, variabilidad inter-arrival, flags, etc.), alineadas con el \emph{feature map} del modelo.
+  \item \textbf{Encolar flujo.} Se introduce en una cola que desacopla captura (productor) de inferencia (consumidor), protegiendo la latencia de captura.
+  \item \textbf{Worker extrae.} Un proceso/ hilo consumidor toma el flujo de la cola y continúa el pipeline.
+  \item \textbf{Mapear y escalar.} Se reordenan columnas al esquema del modelo y se aplica el \emph{scaler} persistido (media/desv. estándar, min–max, etc.).
+  \item \textbf{Modelo RF: predict.} Inferencia con el modelo de \emph{Random Forest} activo, obteniendo probabilidad/clase e incorporando metadatos (versión de modelo, hash de \emph{feature map}).
+  \item \textbf{¿Malicioso?} Decisión por umbral.
+  \begin{itemize}
+    \item \emph{Sí:} \textbf{Generar alerta}. Se construye alerta con contexto; se aplican deduplicación y \emph{rate limiting}.
+    \item \emph{No:} \textbf{Marcar normal}. Se registra clasificación para métricas y análisis.
+  \end{itemize}
+  \item \textbf{Actualizar \emph{dashboard}.} Se reflejan KPIs (tasa, colas, ratio de alertas) y eventos recientes.
+  \item \textbf{¿Captura activa?} Si el operador detiene la captura, el bucle finaliza; en caso contrario, el control retorna a \textbf{Recibir paquete}.
+\end{enumerate}
+
+\textbf{Entradas y salidas.}
+\begin{itemize}
+  \item Entradas: paquetes de red, configuración de captura, modelo y \emph{scaler} activos.
+  \item Salidas: etiquetas por flujo, alertas, métricas operativas y registros para auditoría.
+\end{itemize}
+
+\textbf{Concurrencia y resiliencia.}
+\begin{itemize}
+  \item \emph{Desacoplo productor–consumidor}: la cola evita que la inferencia afecte a la captura. Política ante \emph{backpressure}: aumentar tamaño, \emph{drop} controlado o \emph{spill} a disco.
+  \item \emph{Tiempo de vida del flujo}: la decisión fin/expira/máx impide \emph{flows} eternos y controla memoria.
+  \item \emph{Trazabilidad}: cada predicción conserva versión del modelo y del \emph{feature map}, facilitando auditorías y análisis de deriva.
+\end{itemize}
+
+\textbf{RNF y seguridad.}
+\begin{itemize}
+  \item \emph{Rendimiento}: latencia de inferencia dentro del presupuesto; captura sin pérdidas (monitor de drops).
+  \item \emph{Usabilidad}: el panel refleja estado en tiempo real (RNF de dashboard).
+  \item \emph{Seguridad}: protección de artefactos de modelo, sanitización de datos en alertas.
+\end{itemize}
+
+\textbf{Verificación.} Pruebas con \emph{pcaps} de referencia; validación de colas (sin bloqueos), exactitud de predicción con \emph{golden set}, y pruebas de deduplicación/umbralado de alertas.
+
+\textbf{Trazabilidad.} Satisface \textbf{RF2}, \textbf{RF5}, \textbf{RF1}, \textbf{RF4}, \textbf{RF6} y \textbf{RF8}; condicionado por RNF de rendimiento y disponibilidad.
+
+\subsection{Entrenamiento}
+
+
+\begin{figure}[H] \centering \includegraphics[ height=0.90\textheight, trim=0mm 0mm 90mm 0mm, clip ]{imagenes/diagramas/actividades/activitytraining/at.pdf} \caption{Diagrama de actividades de entrenamiento.} \label{fig:diagActE} \end{figure}
+
+\textbf{Propósito.} Este proceso, vinculado a \textbf{CU\_Modelo} (\textbf{RF7}) y alimentado por \textbf{CU\_GenerarDataset} (\textbf{RF13}), genera y valida el modelo de clasificación empleado en producción.
+
+En la ilustración ~\ref{fig:diagActE} se puede visualizar el diagrama de exportación del dataset.
+
+\textbf{Descripción del flujo.}
+\begin{enumerate}
+  \item \textbf{Iniciar entrenamiento.} Se parametriza la tarea (fuente del dataset, \emph{seed} de aleatoriedad, configuración de evaluación).
+  \item \textbf{Cargar CSV.} Lectura del dataset exportado (CSV) con validación de esquema y tipos.
+  \item \textbf{Preprocesar/limpiar.} Gestión de nulos, outliers, categorías desconocidas; normalización de formatos.
+  \item \textbf{Mapear features CIC.} Alineación de columnas con el conjunto de \emph{features} esperado (p.\,ej., mapeo compatible con \emph{CICFlowMeter}/datasets CIC).
+  \item \textbf{Convertir protocol/timestamp.} Codificación de \emph{protocol} y normalización de tiempos (zona horaria, precisión) para consistencia entre entrenamiento e inferencia.
+  \item \textbf{\emph{Split} train–test.} División estratificada para preservar el balance de clases; posibilidad de conjunto de validación separado o \emph{cross-validation}.
+  \item \textbf{Escalar features.} Cálculo de parámetros del \emph{scaler} (p.\,ej., StandardScaler) sobre el entrenamiento y aplicación consistente a train/test.
+  \item \textbf{Entrenar RandomForest.} Ajuste del clasificador principal (número de árboles, profundidad, \emph{max features}, criterio, etc.) con la semilla fijada para reproducibilidad.
+  \item \textbf{Evaluar métricas.} Cálculo de F1, precisión/recobrado, AUC y, cuando procede, MCC, de acuerdo con los criterios de la sección de evaluación del TFG. Se consideran tanto métricas globales como por clase (normal/malicioso).
+  \item \textbf{¿Aceptable?} Comparación con umbrales definidos en la memoria.
+  \begin{itemize}
+    \item \emph{Sí:} \textbf{Guardar modelo/scaler/mapping}. Se persisten artefactos (modelo serializado, parámetros del \emph{scaler}, orden y nombres de columnas), junto con metadatos (versión, fecha, \emph{seed}, métricas).
+    \item \emph{No:} \textbf{Ajustar hiperparámetros}. Se explora el espacio de hiperparámetros (p.\,ej., rejilla o búsqueda aleatoria) y se itera desde el escalado, manteniendo controles contra sobreajuste (validación cruzada, \emph{hold-out}).
+  \end{itemize}
+  \item \textbf{Fin.} Publicación de un informe de entrenamiento y registro de métricas base para detectar deriva futura.
+\end{enumerate}
+
+\textbf{Entradas y salidas.}
+\begin{itemize}
+  \item Entradas: dataset CSV exportado, configuración de entrenamiento y evaluación.
+  \item Salidas: artefactos versionados (modelo RF, \emph{scaler}, \emph{feature map}) y reporte de métricas.
+\end{itemize}
+
+\textbf{RNF y buenas prácticas.}
+\begin{itemize}
+  \item \emph{Reproducibilidad}: fijar \emph{seed}; guardar versiones de datos/esquema; registrar librerías.
+  \item \emph{Equilibrio de clases}: técnicas de balance si procede (p.\,ej., \emph{class\_weight}).
+  \item \emph{Trazabilidad}: enlazar artefactos con commit/configuración; facilitar \emph{rollback}.
+\end{itemize}
+
+\textbf{Verificación.} Validación de consistencia entre entrenamiento e inferencia (mismo \emph{feature map}/\emph{scaler}); repetibilidad del resultado con igual \emph{seed}; métricas por encima de umbrales definidos.
+
+\textbf{Trazabilidad.} Satisface \textbf{RF7} y depende de \textbf{RF13}. Sus resultados condicionan \textbf{RF1} y \textbf{RF4} en producción.
+
+\section{Diagrama de flujo}
+Un \textbf{diagrama de flujo} modela la secuencia de pasos de un proceso mediante símbolos estandarizados. En nuestra representación utilizamos la notación tradicional de flujogramas\cite{iso5807}) y, como referencia vigente para modelado de procesos, BPMN 2.0~\cite{iso19510bpmn}. En este trabajo mantenemos una notación mínima orientada a claridad operativa:
+\begin{itemize}
+  \item Rectángulos: actividades o procesos (p.\,ej., \emph{Captura}, \emph{Construir}).
+  \item Conectores/flechas: dirección del flujo de control o de datos.
+  \item Cilindros: almacenes o \emph{buffers} (en este contexto, una \textbf{cola} que desacopla productores y consumidores).
+  \item (Opcional) Diamantes: decisiones. En este flujograma concreto no se representan bifurcaciones condicionales.
+\end{itemize}
+A diferencia de los diagramas de \emph{actividades} o de \emph{secuencia}, el flujograma busca la \emph{claridad operativa} del proceso por encima del detalle temporal o de la interacción entre objetos.
+
+En la siguiente ilustración ~\ref{fig:diagFlujo} se puede observar el diagrama de flujo.
+
+\subsection{Descripción del diagrama de flujo}
+La Figura~\ref{fig:diagFlujo} resume el recorrido de los datos desde su origen hasta su consumo por los módulos de inferencia y visualización.
+\begin{enumerate}
+  \item \textbf{Tráfico.} Entrada de paquetes procedentes de la red objetivo. Constituye la fuente de datos primaria del IDS.
+  \item \textbf{Captura.} Un \emph{sniffer} ingiere los paquetes desde una interfaz y aplica, si procede, filtros BPF. La salida son eventos a nivel de paquete.
+  \item \textbf{FlowSession.} Capa de \emph{sessionización} que agrega paquetes en \emph{flows} (p.\,ej., por 5--tupla), manteniendo contadores, marcas temporales y estado del flujo.
+  \item \textbf{Construir.} Transformación del \emph{flow} en un registro estructurado: cálculo de características (duración, tasas, flags, inter-arrival), normalización de tipos y orden de columnas conforme al \emph{feature map}.
+  \item \textbf{Cola.} \emph{Buffer} productor--consumidor que desacopla la etapa de captura/transformación del procesamiento posterior. Amortigua picos de carga y protege la latencia de captura.
+  \item \textbf{Worker.} Proceso consumidor que:
+  \begin{itemize}
+    \item aplica el mapeo y el \emph{scaler} persistidos,
+    \item invoca al \textbf{Modelo} para obtener predicción,
+    \item actualiza el \textbf{Estado} del sistema y emite resultados.
+  \end{itemize}
+  \item \textbf{Modelo.} Clasificador (p.\,ej., \emph{Random Forest}) que devuelve etiqueta y probabilidad para cada \emph{flow}. Sus artefactos (modelo, \emph{scaler}, \emph{feature map}) están versionados.
+  \item \textbf{Estado.} Módulo que consolida métricas operativas (tasas, colas, \% de alertas) y orquesta acciones derivadas (p.\,ej., \emph{rate limiting} de alertas, retención de datos).
+  \item \textbf{Dashboard.} Interfaz que presenta en tiempo real el estado del pipeline y los eventos/alertas al operador.
+  \item \textbf{Export CSV.} Ruta de salida para la \emph{exportación de dataset} (CSV/TXT) destinada a análisis o entrenamiento offline.
+\end{enumerate}
+
+\paragraph{Aspectos clave}
+\begin{itemize}
+  \item \textbf{Desacoplo y robustez.} La \textbf{cola} separa captura e inferencia, evitando bloqueos y permitiendo políticas de \emph{backpressure} (tamaño, \emph{drop} controlado o volcado a disco).
+  \item \textbf{Consistencia de \emph{features}.} El bloque \emph{Construir} y el \emph{Worker} garantizan que el mismo \emph{feature map}/\emph{scaler} se use en entrenamiento e inferencia.
+  \item \textbf{Observabilidad.} \emph{Estado} y \emph{Dashboard} exponen métricas y logs necesarios para operar y auditar el sistema.
+  \item \textbf{Trazabilidad.} Cada registro procesado debe quedar asociado a la versión del modelo y del \emph{feature map} empleados.
+\end{itemize}
+
+\paragraph{Trazabilidad con requisitos y casos de uso}
+El flujograma cubre: \textbf{CU\_Capturar} (RF2), \textbf{CU\_Filtro} (RF5), \textbf{CU\_Clasificar} (RF1), \textbf{CU\_Alerta} (RF4), \textbf{CU\_Dashboard} (RF8) y \textbf{CU\_GenerarDataset} (RF13). Sus elementos se desarrollan con mayor detalle en los diagramas de actividades (Sección~\ref{Sec.DiagActividades}) y de secuencia (Sección~\ref{Sec.DiagSecuencia}).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[height=0.90\textheight, trim = 0mm 0mm 36mm 0mm, clip]{imagenes/diagramas/flujo/diagramaFlujocropped.pdf}
+  \caption{Diagrama de flujo general del pipeline del IDS.}
+  \label{fig:diagFlujo}
+\end{figure}
+
+\section{Diagrama de secuencia}\label{Sec.DiagSecuencia}
+Un diagrama de secuencia muestra la interacción entre objetos organizados en
+una secuencia de tiempo~\cite{omgUML251}. Puede dibujarse con distintos niveles de detalle y para satisfacer distintos objetivos en las diversas etapas del ciclo de vida del desarrollo del sistema. Normalmente se utiliza para representar la interacción entre objetos que se produce en un caso de uso o para una operación. Cuando se utiliza para modelar el comportamiento dinámico de un caso de uso puede considerarse como una especificación detallada del caso de uso.
+
+La dimensión vertical representa el tiempo. Los objetos involucrados en la
+interacción están distribuidos horizontalmente en el diagrama. Cada objeto está representado por una línea de vida, que se representa por una línea vertical discontinua y con un símbolo de objeto en su parte superior. Un mensaje se representa por una flecha horizontal que va desde una línea de vida a otra.
+
+Cuando se envía un mensaje a un objeto se está llamando a una operación de
+ese objeto. El nombre del mensaje generalmente coincide con el de la operación que se está llamando. El periodo de tiempo durante el que se está ejecutando una operación se conoce como una ocurrencia de ejecución o de activación. Dicho periodo de tiempo se representa mediante un bloque rectangular situado a lo largo de la línea de vida.
+\subsection{Principal}
+
+\begin{landscape} \begin{figure}[p] \centering \includegraphics[height=1\textheight, trim = 0mm 82mm 0mm 82mm ,clip]{imagenes/diagramas/secuencia/principal/mainSecuence.pdf} \caption{Diagrama de secuencia principal.} \label{fig:seqPrincipal} \end{figure} \end{landscape}
+
+\paragraph{Propósito}
+Modelar el flujo en línea desde que el operador inicia la captura hasta la clasificación de flujos y la actualización periódica del panel.
+
+\paragraph{Participantes}
+\begin{description}
+  \item[Admin:] usuario que desencadena la acción.
+  \item[UI (Reflex):] interfaz que orquesta las órdenes del usuario y refresca métricas.
+  \item[State:] componente que gestiona el estado global del IDS y el ciclo de vida de hilos.
+  \item[Sniffer:] proceso/hilo de captura que recibe paquetes.
+  \item[Session:] gestor de sesiones/tabla de \emph{flows} (hash por 4--tupla).
+  \item[Flow:] entidad que acumula métricas por flujo y decide su cierre.
+  \item[Writer:] serializa el flujo cerrado a un registro estructurado.
+  \item[Cola:] \emph{buffer} productor--consumidor entre escritura y clasificación.
+  \item[Worker:] consumidor que prepara \emph{features} y pide predicciones.
+  \item[Model:] clasificador (RandomForest) que devuelve \emph{label} y probabilidad.
+\end{description}
+
+A continuación, pasaremos a explicar el flujo de la secuencia principal mostrado en la Figura~\ref{fig:seqPrincipal}.
+\paragraph{Secuencia principal}
+\begin{enumerate}
+  \item \textbf{Admin} hace \emph{Clic Iniciar}. La \textbf{UI} invoca \texttt{start\_capture()} sobre \textbf{State} (CU\_Iniciar, RF10).
+  \item \textbf{State} lanza el hilo de captura y activa el \textbf{Sniffer}.
+  \item Ante cada paquete, \textbf{Sniffer} dispara \texttt{on\_packet\_received(pkt)} hacia \textbf{Session} (callback asíncrona).
+  \item \textbf{Session} localiza o crea el \textbf{Flow} correspondiente y llama a \texttt{add\_packet(pkt)} sobre \textbf{Flow}; este actualiza métricas (contadores, tiempos, flags).
+  \item \textbf{alt} [Flujo expira/FIN]. Si se observa FIN/RST, \emph{timeout} o límite de tamaño/duración:
+    \begin{enumerate}
+      \item \textbf{Flow} calcula y empaqueta \texttt{flow\_data} y lo envía a \textbf{Writer.write(\textit{flow\_data})}.
+      \item \textbf{Writer} transforma a registro (orden de columnas consistente con el \emph{feature map}) y hace \textbf{Cola.put(\textit{flow\_data})} (desacoplando captura y clasificación).
+      \item \textbf{Worker} realiza \textbf{Cola.get()}, mapea/escala \emph{features} según artefactos persistidos y solicita \textbf{Model.predict(\textit{features})}.
+      \item \textbf{Model} devuelve \texttt{label, prob} al \textbf{Worker}; el resultado se persiste y/o se encola para alertado. Este retorno está representado en la figura como respuesta a \texttt{predict(features)}.
+    \end{enumerate}
+  \item En paralelo, la \textbf{UI} realiza un \emph{refresco periódico} de contadores/estado de \emph{pipeline} (``Actualiza contadores'') mostrando tasas de captura, número de \emph{flows} cerrados y alertas (CU\_Dashboard, RF8).
+\end{enumerate}
+
+\paragraph{Consideraciones técnicas}
+\begin{itemize}
+  \item \textbf{Concurrencia:} el hilo de captura produce registros y el \textbf{Worker} los consume. La \textbf{Cola} absorbe picos (\emph{backpressure}). Políticas: tamaño máximo, \emph{drop} controlado o volcado a disco.
+  \item \textbf{Consistencia:} el cierre de flujo en \textbf{Flow} garantiza que las métricas estén completas antes de serializar.
+  \item \textbf{Trazabilidad:} \textbf{Writer} y \textbf{Worker} deben anotar versión de modelo, \emph{scaler} y \emph{feature map} para auditoría.
+  \item \textbf{Seguridad:} sanitizar datos sensibles en rutas de log/alertas.
+\end{itemize}
+
+\paragraph{Requisitos no funcionales (RNF)}
+Latencia de inferencia dentro del presupuesto para no bloquear la captura (RNF de rendimiento); disponibilidad (reintentos sobre la \textbf{Cola} o el \textbf{Model}); observabilidad (métricas y logs).
+
+\paragraph{Verificación}
+Pruebas con \emph{pcaps} de referencia, tests de integridad de la \textbf{Cola}, comprobación de exactitud con \emph{golden set}, y validación del refresco de la \textbf{UI}.
+
+\subsection{Expiración y cierre de flujos}
+
+\paragraph{Propósito}
+Describir el apagado ordenado cuando el operador detiene la captura, asegurando que todos los \emph{flows} pendientes se cierran y persisten correctamente.
+
+\paragraph{Participantes}
+\begin{description}
+  \item[Admin y UI:] desencadenan la parada y muestran confirmación.
+  \item[State:] transiciona el sistema a estado \emph{Offline} y coordina limpieza.
+  \item[Session:] recorre la tabla de \emph{flows} para cerrar los que queden abiertos.
+  \item[Writer y Archivo:] serializan y adjuntan los registros finales a almacenamiento.
+\end{description}
+
+\begin{figure}[ht!] \centering \includegraphics[ height=0.50\textheight, trim = 0mm 0mm 0mm 0mm, clip]{imagenes/diagramas/secuencia/stopExport/stopExport.pdf} \caption{Diagrama de secuencia de expiración y cierre de flujos.} \label{fig:SeqECF} \end{figure}
+
+A continuación, pasaremos a explicar el flujo de la secuencia principal mostrado en la Figura~\ref{fig:SeqECF}.
+\paragraph{Secuencia principal}
+\begin{enumerate}
+  \item \textbf{Admin} ejecuta \emph{Clic Parar}. La \textbf{UI} invoca \texttt{stop\_capture()} sobre \textbf{State} (CU\_Parar, RF11).
+  \item \textbf{State} entra en proceso de parada y llama a \texttt{clean\_write\_flows()} sobre \textbf{Session} para parada/controlado de \emph{flows}.
+  \item \textbf{Session} itera (\textbf{loop} [Flujos pendientes]) sobre la estructura de \emph{flows} abiertos; para cada uno:
+    \begin{enumerate}
+      \item compone el \texttt{data} final del flujo y llama a \textbf{Writer.write(\textit{data})};
+      \item \textbf{Writer} realiza \textbf{Archivo.append(\textit{linea})}, preferiblemente con escritura atómica y \emph{buffers}.
+    \end{enumerate}
+  \item Tras vaciar la cola y completar la escritura, \textbf{State} marca \emph{Estado Offline} y comunica confirmación a la \textbf{UI}, que la muestra a \textbf{Admin}.
+\end{enumerate}
+
+\paragraph{Consideraciones técnicas}
+\begin{itemize}
+  \item \textbf{Idempotencia:} \texttt{clean\_write\_flows()} debe tolerar invocaciones repetidas sin duplicar registros (clave natural por \textit{flow-id} + \emph{timestamps}).
+  \item \textbf{Integridad:} evitar pérdidas de datos asegurando \texttt{flush()} a disco y cierre controlado de descriptores.
+  \item \textbf{Orden:} escribir primero \emph{flows} más antiguos o por prioridad para acotar tiempo de parada.
+  \item \textbf{Telemetría:} contabilizar \emph{flows} drenados, tiempo total y posibles errores de E/S para diagnóstico.
+\end{itemize}
+
+\paragraph{Requisitos no funcionales (RNF)}
+Disponibilidad (parada en tiempo acotado), confiabilidad (no perder \emph{flows}), trazabilidad (log de cierre).
+
+\paragraph{Verificación}
+Pruebas de parada con colas llenas, simulación de fallo de escritura (reintento y \emph{fallback}), y comprobación de que la \textbf{UI} no confirma hasta finalizar la limpieza.

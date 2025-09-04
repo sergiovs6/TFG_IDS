@@ -1,0 +1,217 @@
+% !TeX spellcheck = es_ES
+\documentclass[12pt, a4paper, twoside]{report}   % Tamaño de papel, de fuente y márgenes
+
+% Codificación e idioma
+\usepackage[spanish,es-tabla]{babel}
+% \usepackage[spanish,es-tabla,shorthands=off]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+% Matemáticas y símbolos
+\usepackage{amsmath}
+\usepackage{amssymb} % para \varnothing, etc.
+
+% Tablas e imágenes
+\usepackage{longtable}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{adjustbox}
+\usepackage{pdflscape}
+\usepackage{calc}
+
+% Diagramas
+\usepackage{tikz}
+\usetikzlibrary{calc, positioning}
+
+% SVG (si NO compilas con --shell-escape o no tienes Inkscape, comenta estas 2 líneas)
+% \usepackage{svg}
+% \svgsetup{inkscapearea=page,inkscapeversion=1}
+
+% Algoritmos (sin columna de comentarios; líneas numeradas)
+\usepackage[ruled,linesnumbered]{algorithm2e}
+\SetAlgoLined
+\DontPrintSemicolon
+\renewcommand{\algorithmcfname}{Algoritmo}
+\SetKw{KwRet}{retornar}
+\SetKwInOut{KwIn}{Entrada}
+\SetKwInOut{KwOut}{Salida}
+\SetKwFor{ForCada}{Para cada}{:}{fin} % alias en español
+
+% Código (listings)
+\usepackage{xcolor}
+\usepackage{listings}
+
+\lstdefinestyle{csvline}{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  breaklines=true,
+  breakatwhitespace=false,
+  literate={,}{,\allowbreak}1,
+  postbreak=\mbox{\tiny$\hookrightarrow$ },
+  showstringspaces=false,
+  frame=single,
+  xleftmargin=0pt
+}
+
+\lstdefinestyle{tfgpython}{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  stringstyle=\color{orange!60!black},
+  commentstyle=\color{teal!70!black},
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  stepnumber=1,
+  numbersep=8pt,
+  showstringspaces=false,
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  tabsize=2,
+  keepspaces=true,
+  literate=
+   {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'\i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+   {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+   {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+   {¿}{{\textquestiondown}}1 {¡}{{\textexclamdown}}1
+   {→}{{$\to$}}1
+}
+
+\lstdefinestyle{tfgbash}{
+  language=bash,
+  basicstyle=\ttfamily\small,
+  commentstyle=\color{teal!70!black},
+  stringstyle=\color{orange!70!black},
+  showstringspaces=false,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  literate=
+   {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'\i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+   {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+   {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+   {¿}{{\textquestiondown}}1 {¡}{{\textexclamdown}}1
+}
+
+\newcommand{\codepy}[3]{\begin{lstlisting}[style=tfgpython,caption={#1},label={#2}]#3\end{lstlisting}}
+\newcommand{\codebash}[3]{\begin{lstlisting}[style=tfgbash,caption={#1},label={#2}]#3\end{lstlisting}}
+
+% Otros
+\usepackage{eurosym}
+\usepackage{changepage}
+\usepackage{ifoddpage}
+
+% SIEMPRE AL FINAL
+\usepackage{hyperref}
+
+% ============================================================|
+%                                                             |
+% Plantilla para TFG del Dpto. de Informática de la EPSJ v1.1 |
+%                                                             |
+% Ajustada según la normativa de estilo indicada por la EPSJ  |
+% en el documento https://eps.ujaen.es/sites/centro_epsj/files|
+% /uploads/documents/grados/TFG/criteriosYestilo_TFG.pdf      |
+%                                                             |
+%    - A4 con márgenes de 2.5cm                               |
+%    - Intelineado de 1.5 líneas                              |
+%    - Primera línea de cada párrafo con sangrado             |
+%    - Fuente Arial de 12pt                                   |
+%    - Cabecera con nombre de estudiante y título de TFG      |
+%    - Pie con nombre del centro y nº de página               |
+%    - Portada oficial EPSJ - Dpto. Informática con datos     |
+%                                                             |
+% 2020/09/25 - Francisco Charte Ojeda - Versión inicial       |
+% 2024/07/19 - Francisco Charte Ojeda - Ajustes para generar  |
+%              la nueva portada de la EPSJ                    |
+% CC0 1.0 Universal (CC0 1.0)                                 |
+% https://creativecommons.org/publicdomain/zero/1.0/deed.es   |
+%                                                             |
+%=============================================================|
+
+% ==== Introducir aquí el nombre del estudiante
+\def\Estudiante{Sergio Villar Serrano}
+
+% ==== Introducir aquí el nombre de los tutores. Si solo hay uno dejar las llaves de \TutorB vacías
+\def\TutorA{Prof. D. Manuel José Lucena López}
+\def\TutorB{}
+
+% ==== Introducir aquí el título de completo y abreviado (para las cabeceras) del TFG
+\def\TituloTFG{Sistema de detección de intrusiones basado en aprendizaje automático}
+\def\TituloAbreviado{Machine learning y ciberseguridad}
+
+% ==== Introducir aquí la fecha de presentación del TFG en el formato día/mes/año
+\def\Fecha{31/7/2024}
+
+\input{Portada.tex}
+
+\begin{document}
+
+    \Portada~			
+
+    \pagenumbering{roman}  % Numeración romana para los agradecimientos, dedicatoria y tablas de contenidos
+
+    \input{Agradecimientos.tex} % Editar este archivo para introducir los agradecimientos/dedicatoria
+
+    \cleardoublepage
+    \tableofcontents  % Tabla de contenidos
+
+% ===== Comentar o eliminar las líneas de los índices que no deseen incluirse al inicio de la memoria
+
+    \clearpage\thispagestyle{empty}\cleardoublepage
+    \listoffigures		% Índice de figuras
+
+    \clearpage\thispagestyle{empty}\cleardoublepage
+    \listoftables 		% Índice de tablas
+
+    \clearpage\thispagestyle{empty}\cleardoublepage
+    \listofalgorithms
+    
+    \clearpage\thispagestyle{empty}\cleardoublepage
+    \lstlistoflistings		% Índice de listados
+          
+    \clearpage\thispagestyle{empty}\cleardoublepage
+    \pagenumbering{arabic} % Numeración arábiga para el resto del documento
+
+% ===== Archivos LaTeX con los distintos capítulos que componen la memoria
+
+\input{Introduccion3.tex}  
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Antecedentes.tex}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Analisis.tex}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Diseno.tex}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{MaterialMetodos}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Resultados}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Conclusiones}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{Apendices}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+\input{DefAbreviaturas}
+\clearpage\thispagestyle{empty}\cleardoublepage
+
+% ===== Configuración de la bibliografía
+
+\pagenumbering{roman}  % Numeración romana para el índice
+\bibliographystyle{unsrtnat}
+\bibliography{bibliografia}
+\addcontentsline{toc}{chapter}{Bibliografía}
+
+\clearpage\thispagestyle{empty}
+\begin{center}
+{\color{flashwhite} Generado con la plantilla \LaTeX \textit{TFG Dpto. Informática - EPSJ - v1.1} \par Licencia CC0 1.0 Universal (CC0 1.0) - Francisco Charte Ojeda}
+\end{center}
+
+\end{document}

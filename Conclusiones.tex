@@ -1,0 +1,97 @@
+\chapter{CONCLUSIONES}
+
+\section{Conclusión final del trabajo}
+Este TFG planteó como \textbf{objetivo general} la creación de una \textbf{herramienta de captura en tiempo real} capaz de reconstruir flujos, extraer características y \textbf{generar \textit{datasets} exportables} en formatos (\emph{CSV/TXT}) compatibles con esquemas tipo CIC; y, como demostrador, un \textbf{prototipo de IDS} con un modelo de ML operando en tiempo real. A continuación, se sintetiza el grado de cumplimiento con evidencias:
+
+\begin{itemize}
+  \item \textbf{Captura y exportación de datos (cumplido).} Se desarrolló el capturador (sniffer + \textit{FlowSession} + \textit{features}) y la \textbf{exportación a (\emph{CSV/TXT})} invocable desde la consola o terminal de comandos, permitiendo la construcción sistemática de \textit{datasets}. Este era el objetivo prioritario del trabajo y quedó implementado.
+  \item \textbf{Modelo de ML integrado (cumplido).} Se entrenó e integró un modelo \textbf{Random Forest} con el conjunto de datos \textbf{CIC-IDS2018} (tras estudiar otros datasets en el estado del arte). La evaluación muestra \textbf{Accuracy 0.9293}, \textbf{Precision 0.9981}, \textbf{Recall 0.9185}, \textbf{F1 0.9566} y \textbf{AUC-ROC 0.9851} (Tabla~\ref{tab:main_results}); véanse también el \textit{reporte de la clasificación} (Tabla~\ref{tab:classification_report}) y la \textbf{curva ROC} (Figura~\ref{fig:roc_curve}), entre otros.
+  \item \textbf{Análisis por tipo de ataque (cumplido y documentado).} Se obtuvo \textbf{detección prácticamente perfecta} en fuerza bruta, DoS y SQLi, y \textbf{limitaciones} en \textit{Infiltration} (32.8\% de detección) (Tabla~\ref{tab:attack_detection}, Figura~\ref{fig:attack_heatmap}). Se analizó la causa (distribuciones y \textbf{umbrales}), proponiendo que bajar el umbral a 0.3 eleva la detección al \textbf{53.6\%} con aumento controlado de FP (Tabla~\ref{tab:threshold_analysis}, Figura~\ref{fig:infiltration_analysis}).
+  \item \textbf{Viabilidad operativa (cumplido).} El prototipo alcanza \textbf{152,761 muestras/s} y \textbf{2.028 s} para 309,523 muestras, lo que evidencia \textbf{viabilidad en tiempo prácticamente real}. Véase en el apartado (Resultados, ~\ref{res:rendimientocom}).
+  \item \textbf{Observabilidad y UI (cumplido).} Se implementó un \textbf{dashboard} con métricas, alertas y control de captura, cerrando el \textit{loop} de operación del IDS.
+\end{itemize}
+
+\paragraph{Alcance y decisiones}
+- Aunque se valoraron múltiples datasets en el estado del arte como el CIC-IDS2017, CIC‑IDS2018, CIC‑IDS2019, CIC-DDoS2019, la \textbf{validación experimental} se centró en \textbf{CIC-IDS2018}, unificando ficheros para cubrir 9 tipos de ataque (Tabla~\ref{tab:dataset_distribution}). Esta decisión es coherente con el objetivo prioritario (capturador + generación de datasets) y permitió concentrar esfuerzos en la integración y la evaluación profunda.
+- Se reportaron \textbf{más métricas y visualizaciones} de las inicialmente previstas (añadiendo, p.\,ej., análisis de distribución de probabilidades y \textbf{feature importance}, Figura~\ref{fig:feature_importance}), fortaleciendo la evidencia de desempeño.
+
+\paragraph{Conclusión general}
+El sistema construido cumple el objetivo central de \textbf{generar datasets reproducibles} desde captura en tiempo real y demuestra, mediante un \textbf{prototipo para un IDS} basado en Random Forest, una \textbf{detección robusta} con muy baja tasa de falsos positivos. Las limitaciones detectadas en \textit{Infiltration} están diagnosticadas y cuentan con \textbf{líneas claras de mejora} (ajuste de umbral y enriquecimiento de \emph{features}), lo que sitúa la solución como una \textbf{base sólida y operativa} para evolución futura.
+
+\section{Valoración Personal}
+Esta memoria, culmen de un trayecto académico de cuatro años, representa no solo la materialización de un proyecto final de grado, sino también el reflejo de un profundo aprendizaje, compromiso y constancia. Este Trabajo de Fin de Grado constituye el desafío final para la obtención del título de Ingeniería Informática, encapsulando la evolución formativa de toda la carrera.
+
+Mi interés por el ámbito de la seguridad informática se manifestó incluso antes de iniciar mis estudios universitarios. La fascinación por comprender cómo los sistemas podían ser controlados y manipulados de diversas formas despertó en mí una constante inquietud por identificar y mitigar vulnerabilidades. Esta pasión inicial se consolidó durante el bachillerato, impulsada por el intercambio de conocimientos con un compañero con afinidad por la seguridad, lo que nos llevó a una inmersión más profunda en la investigación de este campo.
+
+Ya en el grado, la asignatura de ``Seguridad en Tecnologías de la Información'' en segundo curso avivó aún más mi deseo de especializarme en esta disciplina. Desde la complejidad de vulnerabilidades a nivel de \textit{hardware} hasta la sencillez de otras detectables con una inspección somera en entornos web, cada aspecto me cautivó. Paralelamente, la introducción a la Inteligencia Artificial y las Metaheurísticas en cursos subsiguientes despertó un nuevo interés hacia estos modelos avanzados, capaces de emular el aprendizaje humano para optimizar resultados. Esta confluencia de intereses me llevó a la elección de un proyecto final de grado que integrara ambas disciplinas: ciberseguridad e inteligencia artificial. Adicionalmente, la estrecha relación entre la seguridad y el mundo de las redes, reforzada por la asignatura de ``Redes e Infraestructuras'', me llevó finalmente a decantarme por la implementación de un capturador de tráfico en tiempo real, concebido como la base para un sistema de detección de intrusiones.
+
+Las etapas iniciales del desarrollo del capturador estuvieron marcadas por desafíos significativos, particularmente la dificultad para encontrar APIs y librerías que facilitaran la implementación. La frustración inicial por la falta de información relevante me llevó a explorar incluso el funcionamiento interno de herramientas como Wireshark. Sin embargo, la perseverancia fue clave, y con el tiempo, logré identificar una API que proporcionaba las funcionalidades necesarias para extraer una vasta cantidad de características del tráfico de red. Esta fase de implementación, aunque desafiante, resultó profundamente apasionante, demostrando que la constancia es fundamental para alcanzar todas nuestras metas y objetivos.
+
+Posteriormente, el proyecto evolucionó hacia el diseño de una aplicación web sencilla para visualizar los flujos de paquetes capturados en tiempo real. Esta etapa presentó un nuevo reto al requerir la selección e integración de un modelo de \textit{Machine Learning} para la detección de intrusiones. Esto implicó una inmersión en los fundamentos del aprendizaje supervisado, decantándome por el modelo \textit{Random Forest}. La asimilación de conceptos de minería de datos, preprocesamiento, análisis y limpieza de datos supuso un esfuerzo considerable, dada la densidad de la información. No obstante, este proceso culminó con el entrenamiento exitoso del sistema y su posterior integración en la aplicación web.
+
+En lo referente a la documentación, este TFG ha representado una valiosa experiencia de aprendizaje sobre los requerimientos y la extensión que conlleva una memoria técnica completa, un contraste notable con los documentos de menor envergadura redactados en cursos anteriores. Asimismo, ha sido mi primera incursión en el entorno \LaTeX~, una herramienta que, a pesar de una curva de aprendizaje inicial, ha demostrado ser sorprendentemente intuitiva y sus utilidades para la redacción de memorias técnicas son inestimables.
+
+Para concluir esta valoración personal, deseo expresar mi profunda satisfacción por la formación multidisciplinar adquirida en campos como la ciberseguridad, la inteligencia artificial, las redes y el desarrollo web. Destaco especialmente el dominio del lenguaje de programación Python, esencial en la ciencia de datos y en el mundo de la ciberseguridad, que ha sido fundamental para el éxito y la culminación de este proyecto. Me siento inmensamente orgulloso de este logro, que representa un hito significativo en mi trayectoria académica y profesional.
+
+\section{Posibles mejoras futuras}
+
+El presente Sistema de Detección de Intrusiones (IDS) y la herramienta de generación de conjuntos de datos constituyen una base sólida para futuras investigaciones y desarrollos. Las siguientes líneas proponen una serie de mejoras y extensiones que podrían potenciar significativamente las capacidades y la robustez del sistema, abordando tanto aspectos técnicos como funcionales.
+
+\begin{enumerate}
+
+    \item\textbf{Diversificación y Optimización del Componente de \textit{Machine Learning}}:
+    \begin{itemize}
+    
+        \item\textbf{Integración de Modelos Avanzados}: Explorar la implementación de otros algoritmos de clasificación supervisada como \textit{Support Vector Machines} (SVM), \textit{Gradient Boosting} (XGBoost, LightGBM) o Redes Neuronales Recurrentes (RNN) y Convolucionales (CNN), así como arquitecturas basadas en \textit{Deep Learning} (como \textit{Transformers}), las cuales han demostrado gran potencial en el análisis de secuencias de datos de red.
+        
+        \item\textbf{Modelos \textit{Ensemble} Híbridos}: Investigar la creación de modelos en \textit{ensemble} que combinen la robustez de algoritmos como \textit{Random Forest} (especialmente eficaz para la clasificación binaria de tráfico benigno/malicioso) con la capacidad de modelos de \textit{Deep Learning} para diferenciar entre tipos específicos de ataque, aprovechando las fortalezas de cada técnica.
+        
+        \item\textbf{Funcionalidad de Re-entrenamiento Continuo}: Desarrollar un mecanismo para permitir que los modelos de \textit{Machine Learning} sean re-entrenados periódicamente con nuevos datos capturados y etiquetados, asegurando que el sistema se adapte a nuevas amenazas y evoluciones en los patrones de tráfico.
+    
+    \end{itemize}
+
+    \item\textbf{Expansión y Refinamiento del Módulo de Adquisición y Preprocesamiento}:
+
+    \begin{itemize}
+
+        \item\textbf{Recolección de Características Adicionales}: Ampliar el conjunto de características extraídas de los paquetes y flujos de red. Esto podría incluir métricas más complejas a nivel de aplicación, características temporales de las conexiones o datos específicos del \textit{payload}, enriqueciendo la capacidad de discriminación del modelo.
+        
+        \item\textbf{Manejo de Tráfico Cifrado}: Investigar y desarrollar métodos para la inspección y el tratamiento de paquetes cifrados (ej., TLS/SSL). Esto podría implicar el uso de funcionalidades de descifrado (similares a las presentes en herramientas como Wireshark, si se dispone de las claves) o el análisis de metadatos del tráfico cifrado para identificar anomalías sin violar la privacidad.
+        
+        \item\textbf{Normalización y Compatibilidad de Datos}: Mejorar los métodos de preprocesamiento para asegurar la compatibilidad y unificación de conjuntos de datos provenientes de diversas fuentes, facilitando la creación de \textit{datasets} más grandes y robustos para el entrenamiento.
+
+    \end{itemize}
+
+    \item\textbf{Mejoras en la Interfaz de Usuario y Funcionalidades de Gestión}:
+
+    \begin{itemize}
+    
+        \item\textbf{Gestión de usuarios y control de acceso}: Incorporar autenticación y autorización con sesiones de usuario (usuario y contraseña), recuperación de credenciales y, en su caso, roles (administrador/analista/solo lectura) para acotar permisos. Almacenamiento seguro de contraseñas (hash con bcrypt/Argon2), expiración de sesión y protección CSRF.
+        
+        \item\textbf{Interfaz remota y operación en arquitectura cliente-servidor}: Desplegar el IDS en una máquina virtual/servidor y acceder mediante una interfaz web remota; separar la máquina que ejecuta la captura y el cómputo pesado de la máquina cliente desde la que se opera. Exponer servicios vía API y asegurar la comunicación extremo a extremo (TLS).
+        
+        \item\textbf{Seguridad y Privacidad de la Aplicación Web}: Implementar mecanismos robustos de seguridad para la aplicación web, incluyendo la encapsulación y cifrado de la información transmitida entre el cliente y el servidor, así como la gestión de autenticación y autorización de usuarios.
+        
+        \item\textbf{Visualización Interactiva y Alertas Avanzadas}: Desarrollar visualizaciones más dinámicas e interactivas del tráfico de red y las detecciones. Esto incluiría \textit{dashboards} personalizables, la capacidad de filtrar alertas por tipo, gravedad o tiempo, y notificaciones en tiempo real (ej., vía correo electrónico o plataformas de mensajería).
+        
+        \item\textbf{Gestión de Reglas Personalizadas}: Ofrecer la posibilidad a los usuarios de definir y gestionar sus propias reglas de detección, permitiendo una mayor adaptabilidad del sistema a entornos específicos o necesidades particulares.
+        
+        \item\textbf{API \textit{RESTful}}: Implementar una API \textit{RESTful} para permitir la integración del IDS con otras herramientas de seguridad, sistemas de gestión de eventos e información de seguridad (SIEM) o plataformas de automatización de respuesta a incidentes.
+
+    \end{itemize}
+    
+    \item\textbf{Escalabilidad, Despliegue y Robustez del Sistema}:
+
+    \begin{itemize}
+ 
+        \item\textbf{Optimización del Rendimiento}: Mejorar el rendimiento del capturador y del motor de detección para manejar grandes volúmenes de tráfico de red en entornos de producción, optimizando el uso de recursos computacionales.
+        
+        \item\textbf{Contenerización y Orquestación}: Empaquetar los diferentes módulos del sistema en contenedores (ej., Docker) para facilitar el despliegue, la portabilidad y la escalabilidad del IDS en entornos de producción o en la nube, utilizando herramientas de orquestación como Kubernetes.
+        
+        \item\textbf{Pruebas de Resistencia y Ciberseguridad Ofensiva}: Realizar pruebas de estrés exhaustivas y aplicar técnicas de ciberseguridad ofensiva (ej., \textit{penetration testing}, ataques adversarios a los modelos ML) para evaluar la resiliencia del sistema y su capacidad para detectar amenazas complejas y en evolución.
+        
+       \item\textbf{Ejecución en Linux (pendiente)}: Garantizar el funcionamiento nativo en Linux y facilitar su instalación (dependencias y permisos básicos).
+        
+    \end{itemize}
+
+\end{enumerate}

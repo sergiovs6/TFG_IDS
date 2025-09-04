@@ -1,0 +1,875 @@
+\chapter{MATERIALES Y MÉTODOS}
+Este capítulo describe los recursos utilizados y los procedimientos seguidos para construir el sistema IDS con captura por flujos (CICFlowMeter), componente de clasificación (Random Forest) e interfaz web (Reflex). Se incluyen decisiones de diseño, algoritmos en pseudo‑código,listados representativos del código fuente así como las funcionalidades más importantes desarrolladas en el proyecto.
+
+\section{Materiales empleados}
+\subsection{Hardware y entorno de desarrollo}
+
+El desarrollo se ha realizado en un equipo personal de propósito general, usando \textbf{Visual Studio Code} como entorno de desarrollo. La tabla~\ref{tab:hw-mm} recoge las especificaciones del ordenador relevantes para la experimentación y el desarrollo.
+
+\begin{longtable}{p{4cm}p{10cm}}
+\textbf{Componente} & \textbf{Especificación} \\
+\hline
+CPU & Intel(R) Core(TM) i7-1065G7 CPU @ 1.5GHz \\
+Memoria RAM & 12 GB \\
+Disco Duro & SSD 512GB \\
+Tarjeta Gráfica & Intel(R) Iris(R) Plus Graphics 128 MB \\
+Sistema Operativo & \textit{(Windows 10 Home/Linux)} \\
+IDE & Visual Studio Code \\
+Red de pruebas & Segmento aislado de laboratorio; generador de tráfico \\
+\hline
+\caption{Hardware y entorno.}\label{tab:hw-mm}\\
+\end{longtable}
+
+\paragraph{Elección del modelo de captura de paquetes:}
+Se estudiaron diferentes alternativas:
+\begin{itemize}
+  \item \textbf{Wireshark/TShark}: excelente para inspección/validación, pero su código base y acoplamiento interno dificultan extraer un módulo de captura independiente alineado con el objetivo de construir \textit{features} de flujo de forma programática.
+  \item \textbf{tcpdump/libpcap}: opción muy eficiente y estándar para captura y filtros BPF; adecuada como comparador/validación.
+  \item \textbf{nmap}: no es un capturador, sino un generador/escáner; se ha usado para \emph{probar} el IDS (escaneos de puertos), no para capturar.
+  \item \textbf{Scapy + CICFlowMeter} (elegido): Scapy aporta una API de alto nivel para ingerir paquetes y CICFlowMeter agrega en \textit{flows} y calcula 83 características compatibles con datasets CIC‑IDS, simplificando la creación de datasets y la alimentación del modelo.
+\end{itemize}
+El criterio de elección ponderó: expresividad y rapidez de desarrollo (Python), disponibilidad de \textit{features} de flujo, integración con el pipeline del modelo de IA y validación con herramientas consolidadas (TShark/tcpdump).
+
+Nótese que consideré un baremo amplio de opciones a elegir para desarrollar el capturador pero me resultó sumamente complejo decantarme por una opción factible. Como bien he comentado, encontré una API que tenía multitud de paquetes con métodos de utilidad que me ayudaron al desarrollo de dicho capturador. La API: \url{https://www.osgeo.cn/scapy/index.html} tuvo un gran impacto en el desarrollo del capturador y la extracción de características. A partir de ella, logré extraer prácticamente todas las características requeridas por el capturador, además de que también proporciona librerías para la captura de paquetes a bajo nivel, su manejo, la agrupación de flujos, entre otros. Aunque también este documento de scapy: \url{https://app.readthedocs.org/projects/scapy/downloads/pdf/stable/} me sirvió de gran utilidad.
+
+\subsection{Software y herramientas}
+En la siguiente tabla ~\ref{tab:sf-h} se pueden visualizar las herramientas y el software utilizado en la elaboración y desarrollo del proyecto.
+
+\begin{longtable}{p{4cm}p{10cm}}
+\textbf{Herramienta} & \textbf{Uso y versión} \\
+\hline
+Python & Lenguaje principal (captura, backend e IA) \\
+Reflex & Framework de interfaz web (dashboard) \\
+Scapy & Ingesta de paquetes y filtros \\
+CICFlowMeter (src/cicflowmeter) & Agregación de \textit{flows} y cálculo de \textit{features} \\
+scikit‑learn / sklearnex & Modelo Random Forest, escalado y aceleración CPU \\
+RAPIDS/cuML (opcional) & Entrenamiento acelerado por GPU (si disponible) \\
+pandas / numpy & Manipulación de datos \\
+imbalanced‑learn & SMOTE y técnicas de balanceo \\
+joblib & Persistencia de artefactos (modelo, escalador, mapeos) \\
+Wireshark/TShark y tcpdump & Validación e inspección del tráfico \\
+\hline
+\caption{Software y herramientas.}\label{tab:sf-h}\\
+\end{longtable}
+
+\subsection{Conjuntos de datos}
+Se analizaron los siguientes datasets de referencia:
+\begin{itemize}
+  \item \textbf{KDD Cup 99 y KDD99}: históricos y ampliamente usados; presentan obsolescencia y sesgos bien documentados.
+  \item \textbf{NSL‑KDD}: corrige algunos problemas de KDD99, pero sigue alejado del tráfico moderno.
+  \item \textbf{CIC‑BoT‑IoT}: centrado en IoT, con distribución específica.
+  \item \textbf{CIC‑IDS 2017/2018/2019}: capturas recientes, con etiquetas y escenarios variados. Los ficheros se publican segmentados por días y, en ocasiones, por franjas horarias.
+\end{itemize}
+
+Se eligió \textbf{CIC‑IDS 2018} por variedad de ataques (fuerza bruta, DoS, ataques web, infiltración), disponibilidad de campos compatibles con CICFlowMeter y representatividad del tráfico.
+
+Dado que CIC‑IDS 2018 está particionado en múltiples ficheros (por días y eventos), se implementó una \textbf{estrategia de unificación} en un único CSV:
+
+\begin{enumerate}
+  \item Carga de cada día seleccionado.
+  \item Limpieza de filas espurias (p.\,ej., \texttt{Label == "Label"}).
+  \item Muestreo estratificado por clase por día (tamaño ajustado por prioridad del escenario).
+  \item Concatenación en un DataFrame único.
+  \item Balanceo con una estrategia híbrida (submuestreo de clases dominantes + SMOTE con límites de tamaño).
+\end{enumerate}
+
+El resultado es un \textbf{dataset unificado y balanceado} (\texttt{cic\_ids\_unified\_balanced.csv}) apto para entrenamiento robusto.
+
+El conjunto \textbf{CIC-CSE-IDS2018} fue creado de forma colaborativa por el \emph{Canadian Institute for Cybersecurity} (CIC) y el \emph{Communications Security Establishment} (CSE). Se diseñaron múltiples escenarios realistas con víctimas y servidores de diversos servicios. Para cada máquina se registró el tráfico y, a partir de éste, se extrajeron más de 80 variables por flujo mediante \textbf{CICFlowMeter}. A diferencia de datasets previos, además de las métricas de flujo clásicas, se incluyen explícitamente el \textbf{protocolo} de transporte y la \textbf{marca temporal} (timestamp) del evento, haciendo el total de variables superior a 80.
+
+\paragraph{Variables disponibles}
+A diferencia de CIC‑IDS2017, CIC‑CSE‑IDS2018 añade dos campos: \textbf{Protocolo} y \textbf{Marca de tiempo}. El conjunto de columnas completas se muestra en la Tabla~\ref{tab:cicids2018-features}.
+
+
+\begin{longtable}{p{0.31\textwidth}p{0.31\textwidth}p{0.31\textwidth}}
+\hline
+\textbf{Columna 1} & \textbf{Columna 2} & \textbf{Columna 3} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}{\small\itshape (continuación)}\\
+\hline
+\textbf{Columna 1} & \textbf{Columna 2} & \textbf{Columna 3} \\
+\hline
+\endhead
+\hline
+\multicolumn{3}{r}{\small\itshape (continúa en la siguiente página)}\\
+\endfoot
+
+\endlastfoot
+Protocolo  & Marca de tiempo (timestamp) & Puerto de destino \\
+Duración del flujo & Total de paquetes fwd & Total de paquetes bwd \\
+Longitud total de paquetes fwd & Longitud total de paquetes bwd & Longitud máxima de paquetes fwd \\
+Longitud mínima de paquetes fwd & Longitud máxima de paquetes bwd & Longitud mínima de paquetes bwd \\
+Longitud media de paquetes fwd & Desviación estándar de la longitud de paquetes fwd & Longitud media de paquetes bwd \\
+Desviación estándar de la longitud de paquetes bwd & Flujo en Bytes/s & Flujo en paquetes/s \\
+Flujo IAT medio & Desviación estándar del flujo IAT & Máximo flujo IAT \\
+Mínimo flujo IAT & Flujo IAT total fwd & Flujo IAT medio fwd \\
+Desviación estándar del flujo IAT fwd & Flujo IAT fwd máximo & Flujo IAT fwd mínimo \\
+Flujo IAT total bwd & Flujo IAT medio bwd & Desviación estándar del flujo IAT bwd \\
+Flujo IAT bwd máximo & Flujo IAT bwd mínimo & Flags PSH fwd \\
+Flags PSH bwd & Flags URG fwd & Flags URG bwd \\
+Longitud de la cabecera fwd & Longitud de la cabecera bwd & Paquetes/s fwd \\
+Paquetes/s bwd & Longitud mínima del paquete & Longitud máxima del paquete \\
+Longitud media del paquete & Desviación estándar de la longitud del paquete & Varianza de la longitud del paquete \\
+Conteo de flags FIN & Conteo de flags SYN & Conteo de flags RST \\
+Conteo de flags PSH & Conteo de flags ACK & Conteo de flags URG \\
+Conteo de flags CWR & Conteo de flags ECE & Ratio de bajada/subida \\
+Tamaño medio de paquete & Tamaño medio de segmento fwd & Tamaño medio de segmento bwd \\
+Longitud de la cabecera fwd media & Bytes/bulk promedio fwd & Packets/bulk medios fwd \\
+Ratio de bulk fwd medio & Bytes/bulk medios bwd & Packets/bulk medios bwd \\
+Ratio de bulk bwd medio & Subflujo de paquetes fwd & Subflujo de bytes fwd \\
+Subflujo de paquetes bwd & Subflujo de bytes bwd & Número total de bits fwd en la ventana inicial (fwd) \\
+Número total de bits fwd en la ventana inicial (bwd) & Conteo de paquetes fwd con payload TCP & Tamaño mínimo de segmentos fwd \\
+Tiempo mínimo que un segmento estuvo activo & Tiempo medio que un segmento estuvo activo & Tiempo máximo que un segmento estuvo activo \\
+Desviación estándar de los tiempos activos & Tiempo mínimo que un segmento estuvo inactivo & Tiempo medio que un segmento estuvo inactivo \\
+Tiempo máximo que un segmento estuvo inactivo & Desviación estándar de los tiempos inactivos & \\
+\hline
+\caption{Variables del dataset CIC-CSE-IDS2018 (incluye Protocolo y Marca de tiempo añadidas respecto a CIC-IDS2017).}
+\label{tab:cicids2018-features}
+\end{longtable}
+
+\paragraph{Ejemplos del dataset}
+Mostraremos dos ejemplos de este conjunto de datos para visualizar su estructura:
+
+\begin{lstlisting}[style=csvline,caption={Ejemplo 1 (CIC‑CSE‑IDS2018, fila CSV abreviada)},label=List.CICIDS2018Example1]
+0,0,14/02/2018 08:36:39,112638623,3,0,0,0,0,0,0,0,0,0,0,0,0,0.0266338483,56319311.5,301.9345955667,56319525,56319098,112638623,56319311.5,301.9345955667,56319525,56319098,0,0,0,0,0,0,0,0,0,0,0,0.0266338483,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,-1,-1,0,0,0,0,0,0,56319311.5,301.9345955667,56319525,56319098,Benign
+\end{lstlisting}
+
+\begin{lstlisting}[style=csvline,caption={Ejemplo 2 (CIC‑CSE‑IDS2018, fila CSV abreviada)},label=List.CICIDS2018Example2]
+22,6,14/02/2018 08:40:13,6453966,15,10,1239,2273,744,0,82.6,196.7412368715,976,0,227.3,371.6778922072,544.1615279659,3.8735871865,268915.25,247443.778966007,673900,22,6453966,460997.571428571,123109.423587757,673900,229740,5637902,626433.555555556,455082.21422401,1167293,554,0,0,0,0,488,328,2.3241523119,1.5494348746,0,976,135.0769230769,277.8347599674,77192.1538461539,0,0,0,1,0,0,0,0,0,140.48,82.6,227.3,0,0,0,0,0,0,15,1239,10,2273,65535,233,6,32,0,0,0,0,0,0,0,0,Benign
+\end{lstlisting}
+
+\paragraph{Días y ataques utilizados}
+En este trabajo se han utilizado los días y ataques indicados en la Tabla~\ref{tab:cicids2018-dias}, siguiendo el script \texttt{unify\_datasets.py}.
+
+\begin{longtable}{p{2.8cm}p{8.8cm}p{2cm}}
+\textbf{Día} & \textbf{Ataques incluidos} & \textbf{Prioridad} \\
+\hline
+02-14-2018 & FTP-BruteForce, SSH-Bruteforce & alta \\
+02-15-2018 & DoS GoldenEye, DoS Slowloris & alta \\
+02-23-2018 & Brute Force Web, XSS, SQL Injection & alta \\
+03-01-2018 & Infiltration & media \\
+\hline
+\caption{Días y ataques empleados de CIC-CSE-IDS2018 (según \texttt{unify\_datasets.py}).}\label{tab:cicids2018-dias}
+\end{longtable}
+
+\paragraph{Distribución por tipo de tráfico}
+Los recuentos principales del dataset aparecen en la Tabla~\ref{tab:cicids2018-detalles}.
+
+\begin{longtable}{p{3.2cm}p{7.5cm}p{3.2cm}}
+\hline
+\textbf{Tipo de tráfico} & \textbf{Tipo de ataque} & \textbf{Número de ejemplos} \\
+\hline
+\endfirsthead
+\multicolumn{3}{c}{\small\itshape (continuación)}\\
+\hline
+\textbf{Tipo de tráfico} & \textbf{Tipo de ataque} & \textbf{Número de ejemplos} \\
+\hline
+\endhead
+\multicolumn{3}{r}{\small\itshape (fin)}\\
+\endfoot
+
+\textbf{Benigno} & \textbf{-} & \textbf{2.110.356} \\
+Ataque & FTP-Bruteforce & 193.360 \\
+Ataque & SSH-Bruteforce & 187.589 \\
+Ataque & DoS-GoldenEye & 41.508 \\
+Ataque & DoS-Slowloris & 10.990 \\
+Ataque & DoS-SlowHttpTest & 91.434 \\
+Ataque & DoS-AttackHulk & 461.912 \\
+\textbf{Ataque} & \textbf{Suma total} & \textbf{986.793} \\
+\caption{Detalles de los datos del dataset CIC-CSE-IDS2018.}
+\label{tab:cicids2018-detalles}\\
+\end{longtable}
+
+\section{Métodos de adquisición y preprocesamiento de datos}
+
+\subsection*{Captura, \textit{sessionización} de flujos y arquitectura del capturador}
+La lógica de captura se apoya en \textbf{CICFlowMeter}, cuya estructura reside en \texttt{/src/cicflowmeter}:
+\begin{itemize}
+  \item \texttt{flow\_session.py}: mantiene la tabla de flujos (\texttt{self.flows}) e implementa \texttt{on\_packet\_received()} y \texttt{clean\_write\_flows()}.
+  \item \texttt{flow.py}: representa un \emph{flow} y computa las 83 \textit{features} en \texttt{get\_data()}.
+  \item \texttt{features/}: módulos para longitudes, tiempos, flags, bytes, etc. Lo componen:
+  \begin{itemize}
+    \item \texttt{packet\_time.py}: Extrae medidas temporales a nivel de flujo y por dirección.
+    \item \texttt{packet\_length.py}: Agrega estadísticas de longitudes de paquete (totales o por dirección).
+    \item \texttt{packet\_count.py}: Cuenta paquetes y calcula tasas y relaciones.
+    \item \texttt{flow\_bytes.py}: Métricas de bytes totales y por dirección, y bytes de cabecera.
+    \item \texttt{flag\_count.py}: Cuenta flags TCP por dirección o en total (SYN, ACK, FIN, RST, URG, PSH, CWR, ECE).
+    \item \texttt{response\_time.py}: Mide tiempos de respuesta entre un paquete saliente y el siguiente paquete entrante.
+  \end{itemize}
+  \item \texttt{writer.py}: salida en CSV/TXT.
+  \item \texttt{constants.py}: parámetros de expiración y limpieza (\texttt{EXPIRED\_UPDATE}, \texttt{MAX\_COLLECT\_PACKETS}, \texttt{FLOW\_DURATION}).
+\end{itemize}
+
+\paragraph{Nota sobre la clave del flujo (implementación en este proyecto)}
+Aunque en la literatura es habitual definir flujos con una \textbf{5‑tupla} (IP/puerto origen, IP/puerto destino y protocolo), en este proyecto la clave interna es una \textbf{4‑tupla normalizada por dirección} (src\_ip, src\_port, dst\_ip, dst\_port), \emph{sin incluir el protocolo}, en coherencia con el código. Esto funciona correctamente en los escenarios evaluados; si se previesen colisiones TCP/UDP para la misma 4‑tupla, puede ampliarse fácilmente a 5‑tupla añadiendo \texttt{protocol} a la clave.
+
+\subsection{Módulos de extracción de características (features/)}
+
+A continuación se detallan los módulos del directorio \texttt{features/} que computan las variables empleadas por el sistema. Cada módulo opera sobre una instancia de \texttt{Flow} (que contiene la lista de paquetes con su dirección FORWARD/REVERSE) y expone métodos para obtener medidas agregadas. Estas medidas son después ensambladas en \texttt{flow.get\_data()}.
+
+\paragraph{packet\_time.py}
+\begin{itemize}
+  \item \textbf{Entradas}: \texttt{flow.packets} con marcas de tiempo (\texttt{packet.time}).
+  \item \textbf{Salidas} principales:
+    \begin{itemize}
+      \item \texttt{get\_duration()}: duración del flujo en segundos (max tiempo relativo - min tiempo relativo).
+      \item \texttt{get\_packet\_iat(dir)}: lista de IATs (microsegundos) entre paquetes consecutivos (totales o por dirección).
+      \item \texttt{get\_timestamp()}: marca de tiempo legible del primer paquete.
+      \item Estadísticos: \texttt{get\_mean()}, \texttt{get\_std()}, \texttt{get\_median()}, \texttt{get\_mode()}, \texttt{get\_skew()}, \texttt{get\_cov()} sobre tiempos relativos.
+    \end{itemize}
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={IATs y duración del flujo (extracto)},label=List.PacketTime]
+def get_packet_iat(self, packet_direction=None):
+    if packet_direction is not None:
+        packets = [p for p,d in self.flow.packets if d == packet_direction]
+    else:
+        packets = [p for p,_ in self.flow.packets]
+    return [1e6 * float(packets[i].time - packets[i-1].time)
+            for i in range(1, len(packets))]
+
+def get_duration(self):
+    times = self._get_packet_times()
+    return max(times) - min(times)
+\end{lstlisting}
+
+\paragraph{packet\_length.py}
+
+\begin{itemize}
+  \item \textbf{Entradas}: \texttt{len(packet)} y cabeceras IP (\texttt{ihl}).
+  \item \textbf{Salidas}: mínimos, máximos, media, desviación estándar, varianza, suma total por dirección; métricas derivadas como \texttt{pkt\_len\_mean/std/var}, \texttt{pkt\_len\_max/min}, \texttt{totlen\_fwd/bwd\_pkts}.
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={Estadísticas de longitudes (extracto)},label=List.PacketLength]
+def get_packet_length(self, packet_direction=None):
+    if packet_direction is not None:
+        return [len(p) for p,d in self.flow.packets if d == packet_direction]
+    return [len(p) for p,_ in self.flow.packets]
+
+def get_total(self, packet_direction=None):
+    return sum(self.get_packet_length(packet_direction))
+
+def get_std(self, packet_direction=None):
+    import numpy as np
+    var = self.get_packet_length(packet_direction)
+    return float(np.sqrt(np.var(var)))
+\end{lstlisting}
+
+\paragraph{packet\_count.py}
+
+\begin{itemize}
+  \item \textbf{Salidas}: \texttt{get\_total(dir)}, \texttt{get\_rate(dir)} = paquetes/segundo, \texttt{get\_down\_up\_ratio()} = bwd/fwd, \texttt{has\_payload(dir)} = conteo de paquetes con carga útil.
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={Conteos y tasas de paquetes (extracto)},label=List.PacketCount]
+def get_total(self, packet_direction=None):
+    if packet_direction is not None:
+        return len([1 for _,d in self.flow.packets if d == packet_direction])
+    return len(self.flow.packets)
+
+def get_rate(self, packet_direction=None):
+    duration = PacketTime(self.flow).get_duration()
+    return self.get_total(packet_direction) / duration if duration > 0 else 0.0
+
+@staticmethod
+def get_payload(packet):
+    if "TCP" in packet: return packet["TCP"].payload
+    if "UDP" in packet: return packet["UDP"].payload
+    return 0
+\end{lstlisting}
+
+\paragraph{flow\_bytes.py}
+
+\begin{itemize}
+  \item \textbf{Salidas}: \texttt{get\_bytes()}, \texttt{get\_bytes\_sent()} (FORWARD), \texttt{get\_bytes\_received()} (REVERSE), tasas por segundo \texttt{get\_rate()/get\_sent\_rate()/get\_received\_rate()}, bytes de cabecera forward/reverse, tamaños mínimos de cabecera, ratios \texttt{get\_header\_in\_out\_ratio()}, métricas \emph{bulk}: bytes/paquetes por bulk y tasa de bulk.
+  \item El tamaño de cabecera se estima con \texttt{IP.ihl * 4} si hay TCP, en caso contrario 8 bytes base.
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={Bytes y tasas; cabeceras y bulk (extracto)},label=List.FlowBytes]
+def get_bytes(self):
+    return sum(len(p) for p,_ in self.flow.packets)
+
+def get_rate(self):
+    dur = PacketTime(self.flow).get_duration()
+    return self.get_bytes() / dur if dur > 0 else 0.0
+
+def get_forward_header_bytes(self):
+    from scapy.layers.inet import IP, TCP
+    def hdr_size(p): return p[IP].ihl * 4 if TCP in p else 8
+    return sum(hdr_size(p) for p,d in self.flow.packets if d is PacketDirection.FORWARD)
+
+def get_bytes_per_bulk(self, direction):
+    if direction is PacketDirection.FORWARD and self.flow.forward_bulk_count:
+        return self.flow.forward_bulk_size / self.flow.forward_bulk_count
+    if direction is PacketDirection.REVERSE and self.flow.backward_bulk_count:
+        return self.flow.backward_bulk_size / self.flow.backward_bulk_count
+    return 0.0
+\end{lstlisting}
+
+\paragraph{flag\_count.py}
+
+\begin{itemize}
+  \item \textbf{Salida}: \texttt{count(flag, dir)} devuelve el número de paquetes cuyo campo \texttt{TCP.flags} contiene el flag indicado.
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={Conteo de flags TCP (extracto)},label=List.FlagCount]
+def count(self, flag, packet_direction=None):
+    cnt = 0
+    if packet_direction is not None:
+        packets = (p for p,d in self.flow.packets if d == packet_direction)
+    else:
+        packets = (p for p,_ in self.flow.packets)
+    for p in packets:
+        if flag[0] in p.sprintf("%TCP.flags%"):
+            cnt += 1
+    return cnt
+\end{lstlisting}
+
+\paragraph{response\_time.py}
+
+\begin{itemize}
+  \item \textbf{Salida principal}: \texttt{get\_dif()} produce una lista de diferencias de tiempo; sobre ella se calculan media, mediana, varianza, desviación, sesgo y coeficiente de variación.
+\end{itemize}
+
+\begin{lstlisting}[language=Python,caption={Diferencias de tiempo solicitud-respuesta (extracto)},label=List.ResponseTime]
+def get_dif(self):
+    diffs, temp_p, temp_d = [], None, None
+    for p,d in self.flow.packets:
+        if temp_d == PacketDirection.FORWARD and d == PacketDirection.REVERSE:
+            diffs.append(float(p.time - temp_p.time))
+        temp_p, temp_d = p, d
+    return diffs
+\end{lstlisting}
+
+\begin{algorithm}[H]
+\DontPrintSemicolon
+\SetAlgoLined
+\SetKwInOut{KwIn}{Entrada}
+\SetKwInOut{KwOut}{Salida}
+\KwIn{\texttt{flow.packets} con marcas de tiempo y dirección}
+\KwOut{Diccionario con 83 variables por flujo}
+\Begin{ 
+  Crear instancias: \texttt{FlowBytes}, \texttt{PacketCount}, \texttt{PacketLength}, \texttt{PacketTime}, \texttt{FlagCount}\;
+  Calcular duración y tasas globales: \texttt{flow\_byts\_s}, \texttt{flow\_pkts\_s}\;
+  Calcular métricas por dirección (FORWARD/REVERSE): totales, media, min, max, desviación de longitudes; IATs; bytes/cabeceras; paquetes con payload\;
+  Calcular flags TCP por dirección y totales\;
+  Calcular ratios: \texttt{down\_up\_ratio}, tamaños medios de paquete\;
+  Calcular métricas de actividad/idle y \emph{bulk} (bytes/paquetes/tasa por bulk)\;
+  Rellenar campos duplicados de compatibilidad CIC (p.\,ej., \texttt{fwd\_seg\_size\_avg})\;
+}
+\caption{Construcción del vector de características por flujo.}
+\label{alg:assemble_features}
+\end{algorithm}
+
+\paragraph{Consideraciones y casos límite}
+\begin{itemize}
+  \item Si la \textbf{duración} del flujo es cero, las \textbf{tasas} devuelven 0 para evitar divisiones por cero.
+  \item Si no hay suficientes elementos, los \textbf{estadísticos} (varianza, desviación) vuelven 0.
+  \item Las \textbf{métricas bulk} solo se computan cuando se supera \texttt{BULK\_BOUND}; en otro caso devuelven 0.
+  \item La \textbf{dirección} se usa para separar FORWARD y REVERSE, manteniendo la coherencia de sub-métricas.
+\end{itemize}
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Tabla de flujos y registros listos para escritura}
+\textbf{Entrada}: paquetes de red, interfaz y filtro BPF\;
+Inicializar diccionario \texttt{flows} y contador \texttt{count}\;
+\ForCada{paquete recibido}{
+  $key \leftarrow$ 4‑tupla normalizada con dirección FORWARD\;
+  $flow \leftarrow flows[(key,count)]$ si existe; en caso contrario probar REVERSE\;
+  \If{$flow == \varnothing$}{
+    Crear \texttt{Flow(paquete, FORWARD)} y registrar en \texttt{flows[(key,0)]}\;
+  }
+  \ElseIf{paquete llega tras \texttt{EXPIRED\_UPDATE}}{
+    Incrementar \texttt{count} (nueva sesión de la misma 4‑tupla)\;
+    Crear/recuperar \texttt{flows[(key,count)]}\;
+  }
+  \ElseIf{paquete TCP con FIN/RST}{
+    Añadir paquete al \emph{flow} y llamar a \texttt{clean\_write\_flows()}\;
+    \textbf{continuar}\;
+  }
+  Añadir paquete al \emph{flow} (\texttt{flow.add\_packet})\;
+  \If{\#paquetes procesados múltiplo de \texttt{MAX\_COLLECT\_PACKETS} \textbf{o} $flow.duration > \texttt{FLOW\_DURATION}$}{
+    \texttt{clean\_write\_flows()}\;
+  }
+}
+
+\caption{Sessionización y control de ciclo de vida de flujos (resumen de \texttt{on\_packet\_received}).}
+\label{alg:on_packet_received}
+\end{algorithm}
+
+\paragraph{Explicación}
+\textbf{Evitar duplicados}: al buscar primero en FORWARD y después en la clave invertida (REVERSE) se agrupa A$\leftrightarrow$B en un único \texttt{Flow}. \\
+\textbf{Sub‑sesiones con \texttt{count}}: cuando hay pausas largas (\texttt{EXPIRED\_UPDATE}) o una conversación supera \texttt{FLOW\_DURATION}, se \emph{trocea} en sub‑sesiones numeradas (\texttt{(key,0)}, \texttt{(key,1)}, \ldots). Ejemplo: 10.0.0.1:50000$\rightarrow$10.0.0.2:80 habla 40s, se para 200s y reanuda; se continúa en \texttt{(key,1)}. Así se evitan “flujos estancados”, se controlan memoria y métricas por tramo ejecutándose el método  \texttt{clean\_write\_flows()} periódicamente o por exceder la duración máxima. \\
+\textbf{Cierre inmediato}: FIN/RST fuerzan \texttt{clean\_write\_flows()}.
+
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Escritura de flujos expirados o cerrados}
+\textbf{Entrada}: $latest\_time$ (\texttt{None} o tiempo de referencia)\;
+\ForCada{clave $k$ en \texttt{flows}}{
+  $flow \leftarrow flows[k]$\;
+  \If{$latest\_time \neq \varnothing$ \textbf{y} $latest\_time - flow.latest\_timestamp < \texttt{EXPIRED\_UPDATE}$ \textbf{y} $flow.duration < 90$}{
+    \textbf{continuar}\;
+  }
+  $data \leftarrow flow.get\_data()$ \tcp*{83 características (CIC)}
+  \texttt{writer.write(data)}\;
+  Eliminar \texttt{flows[k]}\;
+}
+\caption{Extracción y escritura de flujos (\texttt{clean\_write\_flows}).}
+\label{alg:clean_write_flows}
+\end{algorithm}
+
+\paragraph{Explicación}
+Se evita cerrar flujos que aún parecen activos (recientes y de corta duración). Para el resto, \texttt{get\_data()} calcula métricas de longitudes, tiempos, tasas y conteos de flags, y las escribe por CSV/TXT.
+
+Actúa como \textit{colector}: mantiene \textbf{activos} los flujos recientes y cortos, y vuelca/elimina los \textbf{expirados o largos}. Esto estabiliza el consumo de memoria y produce registros con todas las \textit{features} calculadas por \texttt{get\_data()}.
+
+\begin{lstlisting}[style=tfgpython,caption={Cálculo de features a nivel de flujo (extracto)},label=List.FlowGetData]
+# flow.py (extracto)
+def get_data(self) -> dict:
+    flow_bytes = FlowBytes(self)
+    flag_count = FlagCount(self)
+    packet_count = PacketCount(self)
+    packet_length = PacketLength(self)
+    packet_time = PacketTime(self)
+    flow_iat = get_statistics(self.flow_interarrival_time)
+    forward_iat = get_statistics(packet_time.get_packet_iat(PacketDirection.FORWARD))
+    backward_iat = get_statistics(packet_time.get_packet_iat(PacketDirection.REVERSE))
+
+    data = {
+        "src_ip": self.src_ip, "dst_ip": self.dest_ip,
+        "src_port": self.src_port, "dst_port": self.dest_port,
+        "protocol": self.protocol,
+        "timestamp": packet_time.get_timestamp(),
+        "flow_duration": 1e6 * packet_time.get_duration(),
+        "flow_byts_s": flow_bytes.get_rate(),
+        "flow_pkts_s": packet_count.get_rate(),
+        "fwd_pkts_s": packet_count.get_rate(PacketDirection.FORWARD),
+        "bwd_pkts_s": packet_count.get_rate(PacketDirection.REVERSE),
+        "tot_fwd_pkts": packet_count.get_total(PacketDirection.FORWARD),
+        "tot_bwd_pkts": packet_count.get_total(PacketDirection.REVERSE),
+        "totlen_fwd_pkts": packet_length.get_total(PacketDirection.FORWARD),
+        "totlen_bwd_pkts": packet_length.get_total(PacketDirection.REVERSE),
+        "fwd_pkt_len_max": packet_length.get_max(PacketDirection.FORWARD),
+        "bwd_pkt_len_max": packet_length.get_max(PacketDirection.REVERSE),
+        # ... (resto de campos, incluidos flags e IATs)
+    }
+    # Duplicados necesarios para compatibilidad CIC
+    data["fwd_seg_size_avg"] = data["fwd_pkt_len_mean"]
+    data["bwd_seg_size_avg"] = data["bwd_pkt_len_mean"]
+    data["subflow_fwd_pkts"] = data["tot_fwd_pkts"]
+    # ...
+    return data
+\end{lstlisting}
+
+\paragraph{Explicación}
+Cada submódulo encapsula una familia de \emph{features}. Por ejemplo, \texttt{PacketLength} calcula máximos, mínimos, medias y desviaciones; \texttt{PacketTime} produce IATs y duración; \texttt{FlagCount} recorre los flags TCP. Al final se rellenan campos duplicados que CIC-IDS espera por compatibilidad ya que los CSV de los CIC incluyen pares de columnas equivalentes con distinto nombre (\emph{p.ej.}, \texttt{fwd\_seg\_size\_avg} = \texttt{fwd\_pkt\_len\_mean}; \texttt{subflow\_fwd\_pkts} = \texttt{tot\_fwd\_pkts}). El \textbf{StandardScaler} y el \textbf{modelo} se entrenan con la lista completa de nombres, y en inferencia deben recibirse \emph{exactamente} esos nombres y en el mismo orden. Por eso se rellenan explícitamente estos duplicados, garantizando compatibilidad y evitando errores de columnas ausentes o desalineación del vector.
+
+\subsection*{Preprocesamiento para inferencia}
+El predictor transforma el diccionario del capturador al vector requerido por el modelo:
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Vector de \textit{features} escaladas y predicción}
+Inicializar diccionario \texttt{features} con todas las columnas esperadas a 0\;
+\ForCada{(clave\_capturador, clave\_CIC) en \texttt{feature\_mapping}}{
+  \If{clave\_capturador $\in$ \texttt{flow\_data}}{
+    Copiar valor y normalizar: \texttt{Protocol} (TCP=6, UDP=17, ICMP=1), \texttt{Timestamp} numérico\;
+    Asignar en \texttt{features[clave\_CIC]}\;
+  }
+}
+Ordenar columnas según \texttt{cic\_features} y construir \texttt{DataFrame}\;
+Reemplazar \texttt{NaN}/inf por 0 y aplicar \texttt{StandardScaler}\;
+Inferir con \texttt{RandomForest.predict}/\texttt{predict\_proba} y devolver (etiqueta, probabilidad)\;
+\caption{Transformación y predicción en el componente \texttt{CICIDSPredictor}.}
+\label{alg:predictor}
+\end{algorithm}
+
+\begin{lstlisting}[style=tfgpython,caption={Transformar y predecir (extracto)},label=List.Predictor]
+# cicidspredictor.py (extracto)
+def predict(self, flow_data: Dict) -> Tuple[str, float]:
+    features = self.transform_flow_data(flow_data)   # mapping + orden + limpieza
+    features_scaled = self.scaler.transform(features)
+    yhat = self.model.predict(features_scaled)[0]
+    proba = self.model.predict_proba(features_scaled)[0]
+    if len(proba) == 2:
+        return ("Normal", proba[0]) if yhat == 0 else ("Malicious", proba[1])
+    return ("Normal" if yhat == 0 else "Malicious",
+            proba[yhat] if yhat < len(proba) else 0.0)
+\end{lstlisting}
+
+\paragraph{Explicación}
+Se garantiza el orden correcto de columnas, se reescala con el \texttt{StandardScaler} entrenado y se devuelve etiqueta/probabilidad. El código es defensivo frente a modelos binarios o con múltiples clases.
+
+\section{Métodos para la generación de datasets}
+En esta sección, se abordará la explicación de cada uno de los métodos que nos han sido de utilidad para la generación de datasets, el objetivo principal de este proyecto.
+
+\subsection*{Herramienta de línea de comandos \texttt{sniffer.py} y modo dataset}
+El archivo \texttt{sniffer.py} implementa una \textbf{CLI} para ejecutar el capturador y/o generar datasets. Su función es doble: (i) captura en vivo con interfaz y filtro BPF configurables; (ii) \textbf{creación de datasets} con la opción \texttt{-c}, escribiendo ficheros \texttt{.csv} o \texttt{.txt} con todas las columnas CIC.
+
+\paragraph{Opciones principales}
+\begin{itemize}
+  \item \texttt{-i/--interface}: interfaz de red (p.\,ej., \texttt{eth0}).
+  \item \texttt{-t/--txt}: Flujo de salida con formato de fichero \textbf{.txt}.
+  \item \texttt{-c/--csv}: Flujo de salida con formato de fichero \textbf{.csv}.
+  \item \texttt{-f / --file}: Captura los datos desde un archivo dado.
+  \item \texttt{-h/--help}: Muestra este mensaje de ayuda y sale.
+  \item \texttt{-v/--verbose}: Añade más detalle al flujo de ejecución del script.
+\end{itemize}
+
+Cabe destacar que en el \textbf{README.md} del proyecto del capturador, se reflejan las opciones explicadas con varios ejemplos para su entendimiento y uso del mismo.
+
+\paragraph{Uso típico}
+\begin{lstlisting}[style=tfgbash,caption={Invocaciones representativas de sniffer.py},label=List.SnifferCLI]
+# Captura en vivo y genera dataset CSV con columnas CIC
+capturador -i eth0 -c flows.csv
+
+# Igual pero a TXT 
+capturador -i eth0 -t flows.txt
+
+# Procesar un PCAP y volcar a CSV (útil para reproducir ataques/días concretos)
+capturador -f example.pcap -c flows.csv
+
+# Solo muestra un panel de ayuda donde figuran las opciones disponibles a ejecutar
+capturador -h
+\end{lstlisting}
+
+\paragraph{Funcionamiento interno en modo \texttt{-c}}
+Inicializa el \texttt{Writer} (\texttt{CSVWriter}/\texttt{TXTWriter}), ejecuta el bucle de sessionización (Algoritmo~\ref{alg:on_packet_received}) y delega en \texttt{clean\_write\_flows()} (Algoritmo~\ref{alg:clean_write_flows}) el cálculo de \texttt{get\_data()} y la escritura de cabecera + registros. El fichero resultante es \textbf{directamente consumible} por el pipeline de entrenamiento (\texttt{setup\_system.py}) y por el componente de inferencia (mismos nombres y orden de columnas).
+
+\subsection*{Salida desde la captura}
+La generación de datasets desde la captura usa los \texttt{Writer} disponibles (CSV/TXT). La salida incluye todas las columnas compatibles con CIC para facilitar entrenamiento y análisis.
+
+\begin{lstlisting}[style=tfgpython,caption={Fábrica de escritores y salida en CSV (extracto)},label=List.WriterFactory]
+class CSVWriter(OutputWriter):
+    def __init__(self, output_file) -> None:
+        super().__init__(output_file)
+        self.line = 0
+        self.writer = csv.writer(self.file)
+
+    def write(self, data: dict) -> None:
+        if self.line == 0:
+            self.writer.writerow(data.keys()) # cabecera
+        self.writer.writerow(data.values()) # registro
+        self.line += 1
+\end{lstlisting}
+
+\paragraph{Explicación}
+El primer registro escribe la cabecera; los siguientes, los valores de cada flujo. Este CSV es compatible con el preprocesado del entrenador.
+
+\subsection*{Unificación y balanceo de CIC-IDS2018}
+Para consolidar CIC‑IDS2018 se emplea el \textit{unificador}:
+
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Archivo \texttt{cic\_ids\_unified\_balanced.csv}}
+\ForCada{día en \{02-14, 02-15, 02-23, 03-01, ...\}}{
+  Cargar CSV; eliminar filas espurias (\texttt{Label == "Label"})\;
+  Muestrear estratificadamente por clase (tamaño según prioridad del día)\;
+  Añadir columna \texttt{dataset\_origin} y acumular\;
+}
+Concatenar muestras en un único DataFrame\;
+Limpiar datos: convertir numéricos; mapear \texttt{Protocol}; gestionar \texttt{Timestamp}\;
+Balanceo híbrido: submuestrear clases dominantes y aplicar SMOTE con límites (\texttt{MAX\_SMOTE\_SAMPLES})\;
+Guardar CSV resultante y reportar distribución final\;
+\caption{Unificación y balanceo de CIC‑IDS2018.}
+\label{alg:unify_balance}
+\end{algorithm}
+
+
+\begin{lstlisting}[style=tfgpython,caption={Balanceo híbrido (esqueleto simplificado)},label=List.HybridBalance]
+from imblearn.over_sampling import SMOTE
+from imblearn.under_sampling import RandomUnderSampler
+
+def balance_dataset(df):
+    X, y = preparar_xy(df)
+    unders = RandomUnderSampler(sampling_strategy=targets_intermedios,
+                                random_state=42)
+    X_u, y_u = unders.fit_resample(X, y)
+
+    smote = SMOTE(sampling_strategy=targets_finales,
+                  random_state=42, k_neighbors=3)
+    X_b, y_b = smote.fit_resample(X_u, y_u)
+    return X_b, y_b
+\end{lstlisting}
+
+
+\section{Métodos del componente de detección de intrusiones}
+\subsection{Selección y justificación de modelo de machine learning}
+Se utiliza \textbf{Random Forest} por su rendimiento en datos tabulares, robustez ante \textit{features} heterogéneas, baja sensibilidad a escalado y cierta interpretabilidad (importancias). Se consideraron conjuntos base (heurísticas de umbrales, regresión logística, Naive Bayes) como referencias.
+
+\subsection{Proceso de entrenamiento y validación del modelo}
+\begin{algorithm}[H]
+\SetAlgoLined
+\KwResult{Modelo y artefactos persistidos}
+Cargar CSV (unificado o día concreto) por \textit{chunks} para limitar memoria\;
+Preprocesar: mapear \texttt{Protocol}, normalizar \texttt{Timestamp}, garantizar \texttt{cic\_features}\;
+Etiquetado binario: \texttt{y = (Label != "Benign")}\;
+Dividir en \texttt{train/test} (20\%, estratificado)\;
+Ajustar \texttt{StandardScaler} con \texttt{train} y transformar \texttt{train/test}\;
+Entrenar \texttt{RandomForest} (\texttt{n\_estimators=100}, \texttt{max\_depth=20}, \texttt{class\_weight='balanced'})\;
+Evaluar (\texttt{accuracy}, \texttt{classification\_report})\;
+Guardar \texttt{cic\_ids\_model.pkl}, \texttt{cic\_ids\_scaler.pkl}, \texttt{feature\_mapping.pkl}, \texttt{cic\_features.pkl}\;
+\caption{Entrenamiento y evaluación (CPU/GPU con aceleraciones cuando estén disponibles).}
+\label{alg:train}
+\end{algorithm}
+
+\begin{lstlisting}[style=tfgpython,caption={Entrenamiento optimizado (extracto)},label=List.Trainer]
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, classification_report
+import joblib
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+scaler = StandardScaler().fit(X_train)
+X_train_scaled = scaler.transform(X_train)
+X_test_scaled  = scaler.transform(X_test)
+
+model = RandomForestClassifier(
+    n_estimators=100, max_depth=20,
+    class_weight='balanced', n_jobs=-1,
+    random_state=42
+)
+model.fit(X_train_scaled, y_train)
+
+y_pred = model.predict(X_test_scaled)
+print("accuracy:", accuracy_score(y_test, y_pred))
+print(classification_report(y_test, y_pred))
+
+joblib.dump(model, 'cic_ids_model.pkl')
+joblib.dump(scaler, 'cic_ids_scaler.pkl')
+\end{lstlisting}
+
+\subsection{Métodos de integración del modelo}
+La integración en tiempo real se realiza en \texttt{state.py}:
+\begin{itemize}
+  \item \textbf{ConsoleWriter} publica cada flujo en una \textbf{cola} (\texttt{queue.Queue}).
+  \item Un \textbf{worker} (\texttt{process\_flows\_worker}) consume la cola y llama a \texttt{add\_real\_flow\_direct()}, que:
+  \begin{enumerate}
+    \item obtiene la predicción y probabilidad de \texttt{CICIDSPredictor};
+    \item construye el objeto de flujo para la UI;
+    \item genera una alerta si el flujo es malicioso.
+  \end{enumerate}
+\end{itemize}
+
+La app web consume flujos desde una cola y aplica predicción antes de mostrarlos.
+
+\begin{lstlisting}[style=tfgpython,caption={Worker de procesamiento y aplicación de la IA (extracto)},label=List.Worker]
+# state.py (extracto)
+def process_flows_worker():
+    while True:
+        try:
+            flow_data = global_flow_queue.get(timeout=2.0)
+            if global_state_instance:
+                global_state_instance.add_real_flow_direct(flow_data)
+            global_flow_queue.task_done()
+        except queue.Empty:
+            if not global_capturing:
+                break
+
+def add_real_flow_direct(self, flow_data):
+    prediction, probability = cic_predictor.predict(flow_data)
+    flow = {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "src_ip": flow_data.get('src_ip','N/A'),
+        "dst_ip": flow_data.get('dst_ip','N/A'),
+        "protocol": flow_data.get('protocol','Unknown'),
+        "prediction": prediction,
+        "probability": probability,
+        # ... resto de campos mostrados por la UI
+    }
+    self.flows.append(flow)
+    if prediction == "Malicious":
+        self.add_alert(flow)
+\end{lstlisting}
+\paragraph{Explicación}
+El escritor del capturador encola cada flujo. Un \emph{worker} dedicado consume la cola y llama a la predicción. El resultado se refleja en el dashboard y, en caso de malicioso, genera una alerta.
+
+
+\section{Métodos de diseño e implementación de la interfaz de usuario}
+La UI se implementa con \textbf{Reflex}~\cite{rootstackReflex} en \texttt{ids\_web.py}.Reflex compila el frontend en una aplicación Next.js de una sola página y la sirve en un puerto (por defecto 3000) al que puedes acceder en tu navegador. La función del frontend es reflejar el estado de la aplicación y enviar eventos al backend cuando el usuario interactúa con la interfaz de usuario.
+
+En Reflex, solo el frontend se compila en Javascript y se ejecuta en el navegador del usuario, mientras que todo el estado y la lógica permanecen en Python y se ejecutan en el servidor. Cuando iniciamos un servidor FastAPI (por defecto en el puerto 8000) al que se conecta el frontend a través de un websocket: \url{https://fastapi.tiangolo.com/}.
+
+La página principal incluye:
+\begin{itemize}
+  \item \textbf{Cabecera}: título, estado (Online/Offline) y acciones (Iniciar/Parar/Limpiar).
+  \item \textbf{KPIs}: total de \textit{flows}, alertas, normales y ataques.
+  \item \textbf{Tráfico}: lista en vivo con botón de detalles.
+  \item \textbf{Alertas}: panel con severidad, probabilidad y navegación a detalles.
+  \item \textbf{Configuración}: interfaz de red y filtro de captura.
+  \item \textbf{Auto‑refresh}: temporizador cada 2 s cuando \texttt{capturing=True}.
+\end{itemize}
+
+\begin{lstlisting}[style=tfgpython,caption={Auto‑refresh y cabecera },label=List.ReflexHeader]
+rx.moment(interval=2000, on_change=State.refresh_data)
+rx.hstack(
+  rx.badge("Online") if State.capturing else rx.badge("Offline"),
+  rx.button("Parar", on_click=State.stop_capture) if State.capturing
+           else rx.button("Iniciar", on_click=State.start_capture),
+)
+\end{lstlisting}
+
+\subsection*{Componente de configuración y flujo operativo UI$\rightarrow$Estado$\rightarrow$Hilos}
+La configuración permite elegir interfaz (\texttt{interface}) y filtro BPF (\texttt{bpf\_filter}); el botón \textit{Iniciar} valida ambos, carga artefactos si es necesario y lanza los hilos de \textbf{captura} y \textbf{proceso}. El temporizador de auto\-refresh sólo funciona cuando \texttt{capturing=True}. El botón \textit{Parar} sincroniza el cierre y \textit{Limpiar} vacía flujos/alertas.
+
+\begin{lstlisting}[style=tfgpython,caption={Estado mínimo para configuración y captura},label=List.ConfigState]
+class State(rx.State):
+    interface: str = "eth0"
+    bpf_filter: str = ""
+    capturing: bool = False
+    model_loaded: bool = False
+
+    def set_interface(self, iface: str):
+        self.interface = iface
+
+    def set_bpf(self, filt: str):
+        self.bpf_filter = filt
+
+    def start_capture(self):
+        if self.capturing:
+            return
+        assert self.interface in list_interfaces(), "Interfaz no válida"
+        assert validate_bpf(self.bpf_filter), "Filtro BPF inválido"
+        if not self.model_loaded:
+            load_artifacts()  # scaler, modelo y mapeos
+            self.model_loaded = True
+        launch_capture_threads(self.interface, self.bpf_filter)
+        self.capturing = True
+
+    def stop_capture(self):
+        if not self.capturing:
+            return
+        signal_stop_capture()
+        join_capture_threads()
+        self.capturing = False
+
+    def clear_data(self):
+        clear_flows_and_alerts()
+\end{lstlisting}
+
+\begin{lstlisting}[style=tfgpython,caption={Utilidades: listar interfaces y validar filtros BPF},label=List.ConfigUtils]
+import subprocess
+from scapy.all import get_if_list
+
+def list_interfaces():
+    try:
+        return get_if_list()
+    except Exception:
+        return []
+
+def validate_bpf(bpf: str) -> bool:
+    if not bpf or not bpf.strip():  # vacío = sin filtro
+        return True
+    try:
+        res = subprocess.run(
+            ["tcpdump", "-ddd", bpf],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, timeout=3
+        )
+        return res.returncode == 0
+    except Exception:
+        bad = set(";|&$`")
+        return not any(ch in bad for ch in bpf)
+\end{lstlisting}
+
+\subsection*{Diagrama de alto nivel del pipeline}
+\begin{center}
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}
+  % Cajas con ancho controlado
+  \node[draw,rounded corners,fill=gray!10,inner sep=6pt,text width=3.6cm,align=center] (cap)  at (0,0)   {Captura\\(Scapy + BPF)};
+  \node[draw,rounded corners,fill=gray!10,inner sep=6pt,text width=4.8cm,align=center] (agg)  at (5.5,0)  {Agregación en flows\\(CICFlowMeter)};
+  \node[draw,rounded corners,fill=gray!10,inner sep=6pt,text width=5.1cm,align=center] (pred) at (12.5,0) {CICIDSPredictor\\(Scaler + Random Forest)};
+  \node[draw,rounded corners,fill=gray!10,inner sep=6pt,text width=3.6cm,align=center] (ui)   at (19.2,0) {UI (Reflex)};
+
+  % Flechas
+  \draw[->] (cap) -- (agg);
+  \node[fill=white,inner sep=1pt] at ($(cap)!0.5!(agg)+(0,0.6)$) { };
+
+  \draw[->] (agg) -- (pred);
+  \node[fill=white,inner sep=1pt] at ($(agg)!0.5!(pred)+(0,0.65)$) {83 features};
+
+  \draw[->] (pred) -- (ui);
+  \node[fill=white,inner sep=1pt] at ($(pred)!0.5!(ui)+(0,0.65)$) {etiqueta, prob.};
+\end{tikzpicture}%
+}
+\end{center}
+
+\section{Reproducibilidad y despliegue}
+\begin{itemize}
+  \item \textbf{Dependencias}: \texttt{gpu\_deps.py} intenta instalar scikit‑learn, pandas, numpy, joblib, imbalanced‑learn, extensiones Intel y paquetes RAPIDS/cuML (si están disponibles).
+  \item \textbf{Setup}: \texttt{setup\_system.py} guía el entrenamiento (GPU/CPU/muestreo/unificado) y verifica los artefactos (\texttt{.pkl}).
+  \item \textbf{Artefactos versionados}: \texttt{cic\_ids\_model.pkl}, \texttt{cic\_ids\_scaler.pkl}, \texttt{feature\_mapping.pkl}, \texttt{cic\_features.pkl}.
+  \item \textbf{Ejecución}: \texttt{reflex run} lanza el dashboard.
+\end{itemize}
+
+\begin{lstlisting}[caption={Ejecución típica desde terminal},language=bash,label=List.Run]
+python setup_system.py       # Entrena y guarda artefactos
+reflex run                   # Levanta el dashboard web
+\end{lstlisting}
+
+\section{Configuración experimental y métricas}
+\textbf{Escenarios}: tráfico normal (HTTP/HTTPS/DNS/ICMP), escaneos \texttt{nmap} (\texttt{-sS/-sT/-sU}) y reproducción de ataques de CIC‑IDS mediante pcaps o generación. \\
+\textbf{Métricas de sistema}: pps, \% drops, tamaño/latencia de cola, latencia de inferencia, ratio de alertas. \\
+\textbf{Métricas del modelo}: accuracy, precisión, recall, F1, AUC, matriz de confusión.
+
+\subsection*{Medición de latencias y rendimiento}
+\begin{lstlisting}[style=tfgpython,caption={Medición rápida de latencia de inferencia},label=List.MetricsLatency]
+import time
+def timed_predict(flow_dict):
+    t0 = time.perf_counter()
+    label, proba = cic_predictor.predict(flow_dict)
+    t1 = time.perf_counter()
+    return label, proba, (t1 - t0) * 1000.0  # ms
+\end{lstlisting}
+
+\subsection*{Selección de umbral y severidad de alertas}
+\begin{lstlisting}[style=tfgpython,caption={Mapa simple de severidad en función de probabilidad},label=List.AlertSeverity]
+def alert_severity(label: str, proba: float) -> str:
+    if label != "Malicious": return "Info"
+    if proba >= 0.95: return "Critical"
+    if proba >= 0.80: return "High"
+    if proba >= 0.60: return "Medium"
+    return "Low"
+\end{lstlisting}
+
+\subsection*{Validación temporal y robustez}
+Además del \textit{train/test} aleatorio, se recomienda una validación \emph{leave‑one‑day‑out} (entrenar con varios días y evaluar en un día no visto) para medir \emph{domain shift} por fecha/escenario.
+
+\subsection*{Importancia de características y trazabilidad}
+\begin{lstlisting}[style=tfgpython,caption={Exportar top‑20 importancias de características},label=List.TopImportances]
+import numpy as np
+def top_feature_importances(model, feature_names, k=20):
+    imps = np.asarray(model.feature_importances_)
+    idx = np.argsort(imps)[::-1][:k]
+    return [(feature_names[i], float(imps[i])) for i in idx]
+\end{lstlisting}
+
+\subsection*{Auditoría de predicciones maliciosas}
+\begin{lstlisting}[style=tfgpython,caption={Registro de auditoría opcional},label=List.AuditLog]
+import json, time
+def audit_malicious(flow, model_version: str):
+    rec = {"ts": time.time(), "model": model_version, "flow": flow}
+    with open("ids_audit.log", "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec) + "\n")
+\end{lstlisting}
+
+\section{Riesgos, limitaciones y consideraciones éticas}
+En el desarrollo de este TFG he identificado varios aspectos que condicionan el comportamiento y la explotación del sistema:
+
+\begin{itemize}
+  \item \textbf{Generalización del modelo.} El entrenamiento se ha realizado con datos CIC--IDS. Aunque es un referente académico, su distribución no coincide siempre con la de una red productiva; por tanto, cabe esperar pérdida de rendimiento fuera del dominio de entrenamiento. Para mitigar este riesgo, he mantenido el pipeline de datos desacoplado (permite reentrenar con nuevas capturas) y he documentado el procedimiento de actualización del modelo.
+
+  \item \textbf{Desbalanceo y sesgos de clase.} La proporción de tráfico benigno frente a algunas familias de ataque es muy desigual. He aplicado un balanceo híbrido (submuestreo + SMOTE) y he monitorizado métricas por clase (recall/precision) para evitar optimizar únicamente la \emph{accuracy}. Aun así, pueden persistir sesgos si aparecen ataques no representados.
+
+  \item \textbf{Privacidad y protección de datos.} La exportación de flujos contiene metadatos de red (IP de origen/destino, puertos y marcas temporales). En los ficheros de análisis y las evidencias adjuntas he priorizado la anonimización o el uso en entornos aislados. En casos de demostración pública, se recomienda enmascarar IPs y limitar la persistencia.
+
+  \item \textbf{Rendimiento y robustez.} El capturador funciona en tiempo real y podría sufrir picos (tráfico a ráfagas). Para evitar pérdidas he implementado límites y limpieza periódica de flujos (\texttt{EXPIRED\_UPDATE}, \texttt{FLOW\_DURATION}, \texttt{MAX\_COLLECT\_PACKETS}) y un \emph{worker} dedicado al procesado. Aun así, en entornos de alto caudal sería necesario dimensionar hardware y/o activar mecanismos de \emph{backpressure} y muestreo.
+\end{itemize}

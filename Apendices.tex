@@ -1,0 +1,272 @@
+\chapter{APÉNDICES}
+\section{Instalación y configuración del sistema}
+
+\subsection*{Requisitos previos}
+\begin{itemize}
+  \item \textbf{Python} 3.10+ (probado con 3.10/3.11)
+  \item \textbf{pip} para gestión de paquetes
+  \item \textbf{Permisos de captura}: en Linux, ejecutar con \texttt{sudo} o asignar capacidades a \texttt{python}/\texttt{tcpdump}; en Windows, abrir la terminal como administrador
+  \item \textbf{Hardware recomendado}: 8GB RAM mínimo, 16GB recomendado para entrenamiento
+  \item \textbf{Dataset CIC-IDS2018}: descargar y ubicar en ruta accesible (para entrenamiento avanzado)
+\end{itemize}
+
+\subsection*{Preparación del entorno}
+
+A continuación se muestran rutas y comandos típicos. Adáptalo según su estructura concreta donde lo quiera ejecutar.
+\begin{lstlisting}[style=tfgbash,caption={Configuración inicial del proyecto},label=List.EnvSetup]
+# Clonar o descargar y acceder al proyecto
+cd ids_web 
+
+# Crear entorno virtual
+python -m venv reflex_env
+
+# Activar entorno virtual (Windows)
+cd .. (hay que movernos una rama hacia atrás para activar el entorno virtual) para luego una vez activado, volveremos al proyecto: cd ids_web para ejecutar las siguientes órdenes que se explicarán a continuación para lanzar el proyecto
+.\reflex_env\Scripts\activate     
+
+# Activar entorno (Linux/Mac)
+source reflex_env/bin/activate
+
+# Actualizar pip
+pip install -U pip
+\end{lstlisting}
+
+\subsection*{Instalación de dependencias}
+Se puede considerar una opción, pero en la siguiente subsección se recomienda el método más cómodo y fácil de utilizar ~\ref{Sec:apendices_instalacion}
+\begin{lstlisting}[style=tfgbash,caption={Instalar dependencias del proyecto},label=List.InstallDeps]
+# Si el proyecto incluye requirements.txt (como lo incluye en este caso, lo ejecutamos)
+pip install -r requirements.txt
+
+# Instalar dependencias GPU (opcional)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# Alternativa con poetry (si se usa):
+poetry install
+
+# O ejecutar el configurador automático
+python training/setup_system.py
+\end{lstlisting}
+
+\subsection*{Instalación y entrenamiento automático (Recomendado)}\label{Sec:apendices_instalacion}
+\textbf{El método más simple es usar el configurador automático que instala dependencias y entrena el modelo:}
+
+\begin{lstlisting}[style=tfgbash,caption={Configuración completa automática},label=List.AutoSetup]
+# Ejecutar configurador automático 
+python training/setup_system.py
+\end{lstlisting}
+
+Cabe destacar que todos los comandos de entrenamiento y procesado de paquetes se ejecutan en el directorio ~\texttt{ids\_web/ids\_web} ya que en el se encuentran todos los archivos necesarios para que funcione excepto el comando ~\texttt{reflex run} que se ejecuta un nodo más arriba en la jerarquía: ~\texttt{ids\_web/}.
+
+\textbf{¿Qué hace \texttt{training/setup\_system.py}?}
+\begin{itemize}
+  \item \textbf{Instala automáticamente} todas las dependencias necesarias (GPU y CPU)
+  \item \textbf{Detecta} si tienes GPU NVIDIA y configura aceleración.
+  \item \textbf{Presenta menú interactivo} con opciones de entrenamiento.
+  \item \textbf{Genera automáticamente} todos los artefactos del modelo en \texttt{models/}.
+\end{itemize}
+
+\textbf{Opciones disponibles en el menú:}
+\begin{enumerate}
+  \item \textbf{Entrenamiento básico}: Dataset individual, rápido para pruebas.
+  \item \textbf{Entrenamiento GPU}: Acelerado con GPU (si está disponible).
+  \item \textbf{Entrenamiento con muestreo}: Subset de 100k muestras, muy rápido.
+  \item \textbf{Dataset unificado balanceado}: Múltiples datasets CIC-IDS2018, recomendado para producción.
+\end{enumerate}
+
+\subsection*{Instalación manual (Solo si no funciona el método automático)}
+\begin{lstlisting}[style=tfgbash,caption={Instalación manual de dependencias},label=List.ManualInstall]
+# Instalar dependencias básicas
+pip install reflex pandas scikit-learn joblib scapy numpy
+
+# Dependencias adicionales para entrenamiento
+pip install imbalanced-learn tqdm matplotlib seaborn
+
+# GPU (opcional, solo si tienes NVIDIA GPU)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+\end{lstlisting}
+
+\subsection*{Entrenamiento manual (Opción avanzada)}
+\textbf{Solo usar si necesitas control específico sobre el entrenamiento:}
+
+\subsubsection*{Entrenamiento básico}
+\begin{lstlisting}[style=tfgbash,caption={Entrenamiento con dataset individual},label=List.BasicTrain]
+# Dataset individual (requiere un archivo CSV de CIC-IDS2018 y es más rápido)
+python training/cicidstrainer_optimized.py
+
+# Solo CPU (forzar sin GPU)
+python training/cicidstrainer_optimized.py --cpu-only
+
+# Con muestreo rápido
+python training/cicidstrainer_optimized.py --sample=100000
+\end{lstlisting}
+
+\subsubsection*{Entrenamiento con dataset unificado}
+\textbf{IMPORTANTE}: Para usar el dataset unificado balanceado, primero debe crearse:
+
+\begin{lstlisting}[style=tfgbash,caption={Crear y entrenar con dataset unificado},label=List.UnifiedTrain]
+# PASO 1: Crear dataset unificado balanceado (obligatorio)
+python training/unify_datasets.py
+
+# PASO 2: Entrenar con dataset unificado
+python training/cicidstrainer_optimized.py --unified
+\end{lstlisting}
+
+\textbf{¿Qué hace cada script?}
+\begin{itemize}
+  \item \texttt{training/unify\_datasets.py}: Combina múltiples archivos CIC-IDS2018, balancea clases con SMOTE+Undersampling, genera \texttt{cic\_ids\_unified\_balanced.csv}
+  \item \texttt{training/cicidstrainer\_optimized.py --unified}: Entrena con el archivo balanceado creado en el paso anterior
+\end{itemize}
+
+\subsection*{Verificación de artefactos}
+Tras cualquier entrenamiento exitoso, se generan estos archivos en \texttt{models/}:
+
+\begin{lstlisting}[style=tfgbash,caption={Verificar modelo entrenado},label=List.VerifyModel]
+# Verificar archivos generados
+dir *.pkl                              # Windows
+# ls *.pkl                             # Linux/Mac
+
+# Probar modelo con muestras conocidas
+python analisis/test_ids_model.py
+\end{lstlisting}
+
+\textbf{Archivos generados en \texttt{models/}:}
+\begin{itemize}
+  \item \texttt{cic\_ids\_model.pkl}: Modelo Random Forest entrenado
+  \item \texttt{cic\_ids\_scaler.pkl}: Normalizador StandardScaler
+  \item \texttt{feature\_mapping.pkl}: Mapeo de características
+  \item \texttt{cic\_features.pkl}: Orden de características
+\end{itemize}
+
+\section{Manual de usuario}
+En esta sección, explicaremos una vez que hayamos descargado cada una de las dependencias y paquetes necesarios, como podremos poner nuestro IDS en marcha.
+
+El proyecto IDS Web está organizado en una estructura modular que facilita el mantenimiento y escalabilidad:
+\subsection{Arquitectura de directorios del proyecto}
+
+En primer lugar, debemos de conocer que el proyecto IDS Web está organizado en una estructura modular que facilita el mantenimiento y escalabilidad:
+\begin{lstlisting}[style=tfgbash,caption={Estructura de directorios del proyecto},label=List.ProjectStructure]
+ids_web/
+├── analysis/                    # Scripts de análisis y testing
+│   ├── test_ids_model.py       # Pruebas del modelo entrenado
+│   ├── debug_dataset.py        # Debug y verificación de datasets
+│   └── debug_verify.py         # Verificación general del sistema
+├── models/                      # Artefactos del modelo entrenado
+│   ├── cic_ids_model.pkl       # Modelo Random Forest
+│   ├── cic_ids_scaler.pkl      # Normalizador StandardScaler
+│   ├── feature_mapping.pkl     # Mapeo de características
+│   ├── cic_features.pkl        # Orden de características
+│   └── cic_ids_unified_balanced.csv # Dataset balanceado
+├── training/                    # Scripts de entrenamiento
+│   ├── cicidstrainer_optimized.py  # Entrenador principal
+│   ├── unify_datasets.py       # Unificador de datasets
+│   └── setup_system.py         # Configurador automático
+├── utils/                       # Utilidades del sistema
+│   └── gpu_deps.py             # Dependencias GPU
+├── core/                        # Lógica central del sistema
+│   ├── state.py                # Estado de la aplicación
+│   └── cicidspredictor.py      # Predictor de ataques
+├── ids_web.py                  # Aplicación web principal
+├── requirements.txt            # Dependencias del proyecto
+└── rxconfig.py                 # Configuración de Reflex
+\end{lstlisting}
+
+\textbf{Descripción de componentes:}
+\begin{itemize}
+  \item \texttt{ids\_web.py}: Interfaz web principal con dashboard en tiempo real
+  \item \texttt{core/}: Contiene la lógica central (estado y predictor)
+  \item \texttt{training/}: Scripts para entrenamiento y configuración automática
+  \item \texttt{models/}: Almacena todos los artefactos del modelo entrenado
+  \item \texttt{analysis/}: Herramientas de testing y verificación
+  \item \texttt{utils/}: Utilidades compartidas (dependencias GPU, etc.)
+\end{itemize}
+
+\subsection*{Lanzamiento del IDS web}
+Una vez hayamos completado la instalación, el entrenamiento y tengamos un conocimiento previo de la jerarquía de directorios, procederemos al lanzamiento de la aplicación:
+
+\begin{lstlisting}[style=tfgbash,caption={Iniciar aplicación web},label=List.WebLaunch]
+# Activar entorno virtual (si no está activo)
+.\reflex_env\Scripts\activate        # Windows
+
+# Linux/Mac:
+# Desconozco como se activará porque no me he ceñido en concreto en los demás sistemas operativos pero será bastante similar.
+
+# Iniciar aplicación web
+cd ids_web (Nos movemos al directorio del proyecto)
+reflex run
+\end{lstlisting}
+
+\textbf{Acceso}: La aplicación estará disponible en \texttt{http://localhost:3000}
+
+\subsection*{Funcionalidades de la interfaz web}
+\begin{itemize}
+  \item \textbf{Dashboard principal}: Visualización en tiempo real de detecciones de ataques
+  \item \textbf{Control de captura}: Botones Iniciar/Parar/Limpiar en la cabecera
+  \item \textbf{Selección de interfaz}: Dropdown con interfaces de red disponibles
+  \item \textbf{Filtros BPF}: Campo opcional para filtros Berkeley Packet Filter
+  \item \textbf{Actualización automática}: Cada 2 segundos durante la captura activa
+  \item \textbf{Estadísticas}: Contadores de flujos benignos vs maliciosos detectados
+\end{itemize}
+
+\subsection*{Captura por línea de comandos}
+Por otra parte, el proyecto incluye una CLI para captura y creación de datasets, la meta principal de este proyecto. En la versión actual, cuando se usa modo dataset, se indica el formato \texttt{CSV} o \texttt{TXT} mediante las flags y se pasa la salida (ruta de fichero).
+\paragraph{Captura en vivo a CSV/TXT (requiere permisos)}
+
+\begin{lstlisting}[style=tfgbash,caption={Comandos de captura CLI},label=List.CLICapture]
+# CSV
+capturador -i eth0 -c flows.csv
+
+# TXT
+capturador -i eth0 -t flows.txt
+python capturador -h
+\end{lstlisting}
+
+\paragraph{Procesar un PCAP y convertirlo a flujos}
+\begin{lstlisting}[style=tfgbash,caption={PCAP -> CSV},label=List.PcapCSV]
+capturador -f example.pcap -c flows.csv
+\end{lstlisting}
+
+\paragraph{Con mayor detalle (logs)}
+\begin{lstlisting}[style=tfgbash,caption={Añadir verbosidad},label=List.Verbose]
+capturador -i eth0 -c flows.csv -v
+\end{lstlisting}
+
+En Windows, las interfaces pueden tener espacios (p.\,ej., \texttt{"Wi-Fi"}). Use comillas si es necesario (en mi caso, si lo ha sido):
+\begin{lstlisting}[style=tfgbash,caption={Ejemplo con interfaz con espacios (Windows)},label=List.WinIface]
+capturador -i "Wi-Fi" -c flows.csv
+\end{lstlisting}
+
+\paragraph{Nota sobre ayudas y nombres de interfaz}
+\begin{lstlisting}[style=tfgbash,caption={Ayuda de la CLI},label=List.CLIHelp]
+capturador -h
+\end{lstlisting}
+
+\subsection*{Análisis y testing}
+\begin{lstlisting}[style=tfgbash,caption={Scripts de análisis disponibles},label=List.Analysis]
+# Probar modelo con muestras de ataques conocidos
+python analisis/test_ids_model.py
+
+# Debug y verificación del dataset
+python analisis/debug_dataset.py
+
+# Verificar funcionamiento general
+python analisis/debug_verify.py
+\end{lstlisting}
+
+\subsection*{Solución de problemas comunes}
+\begin{itemize}
+  \item \textbf{Error "Modelo no encontrado"}: Ejecutar \texttt{python training/setup\_system.py} para generar artefactos.
+  \item \textbf{Error "Dataset no encontrado" con \texttt{--unified}}: Ejecutar primero \texttt{python training/unify\_datasets.py}.
+  \item \textbf{Sin permisos de captura}: Ejecutar terminal como administrador (Windows) o usar \texttt{sudo} (Linux).
+  \item \textbf{Interfaz de red no detectada}: Verificar nombre exacto con \texttt{ipconfig} (Windows) o \texttt{ifconfig} (Linux).
+  \item \textbf{GPU no detectada}: Instalar CUDA toolkit y drivers NVIDIA apropiados.
+  \item \textbf{Lentitud o cortes}: reduzca el filtro BPF, ajuste \texttt{EXPIRED\_UPDATE}/\texttt{FLOW\_DURATION}/\texttt{MAX\_COLLECT\_PACKETS} y/o utilice hardware más potente. Actualmente, con los parámetros que están por defecto en el archivo \textbf{constantes.py} funciona correctamente.
+  \item \textbf{Error por columnas al inferir}: verifique que \texttt{models/cic\_features.pkl} y \texttt{models/feature\_mapping.pkl} estén presentes; los nombres y el orden de columnas deben ser exactamente los del entrenamiento.
+\end{itemize}
+
+\subsection*{Flujo de trabajo recomendado}
+\begin{enumerate}
+  \item \textbf{Primera vez}: \texttt{python training/setup\_system.py} (instala todo y entrena).
+  \item \textbf{Uso diario}: \texttt{reflex run} (lanza aplicación web). Este comando se utilizará como uso diario una vez que ya hayamos cargado y entrenado el modelo con \texttt{python training/setup\_system.py}.
+  \item \textbf{Re-entrenamiento}: \texttt{python training/cicidstrainer\_optimized.py --unified} (si quieres modelo actualizado).
+  \item \textbf{Testing}: \texttt{python analisis/test\_ids\_model.py} (verificar precisión del modelo).
+\end{enumerate}
